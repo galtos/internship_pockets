@@ -445,6 +445,7 @@ all_valide_clusters = F
 path_tree = c("alltree")
 list_path_tree = path_tree
 list_n_cluster = NULL
+list_pockets_cluster_names = NULL
 cluster_infos = NULL
 nbr_k= 1
 pockets_cluster_names = list(row.names(dt))
@@ -458,27 +459,30 @@ while(FALSE %in% valid_cluster) {
                                        dt = dt[unlist(pockets_cluster_names[[i]]),],
                                        path_tree = list_path_tree[i])
       list_n_cluster = c(list_n_cluster, nrow(cluster_dt))
-     cluster_infos = rbind(cluster_infos, cluster_dt)
+      pockets_cluster_names = c(pockets_cluster_names, cluster_dt[,"pockets_names"])
+      cluster_infos = rbind(cluster_infos, cluster_dt)
     }
   }
-  pockets_cluster_names = cluster_dt[,"pockets_names"]
+  
   valid_cluster = NULL
   list_path_tree = NULL
   for (i in list_n_cluster) {
+    print(i)
     for (j in 1:i){
       valid_cluster = c(valid_cluster, FALSE)
-      list_path_tree = c(list_path_tree, paste(path_tree , i, sep ="/"))
+      list_path_tree = c(list_path_tree, paste(path_tree , j, sep ="/"))
     }
   }
-
-  if(iter == 2){
+  list_n_cluster = NULL
+  if(iter == 3){
     valid_cluster = c(TRUE)
   }
   iter = iter + 1
-  print("t2")
-
+  if(iter == 2) {
+    print("t3")
+    print(valid_cluster)
+  }
 }
-#TODO : add list of names in infos of the tree
 alltree <- as.Node(cluster_infos)
 print(alltree, "size")
 
