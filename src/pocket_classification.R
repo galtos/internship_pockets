@@ -356,7 +356,7 @@ library(data.tree)
 library(treemap)
 #lets suppose we already cleaned the data: dt
 nstart = 1
-prct_seed = .1/100#10/100
+prct_seed = 10/100#10/100
 min_size_cluster =100
 
 dt.kmean.cluster = NULL#[]
@@ -364,7 +364,7 @@ dt.kmean.cluster.centers = NULL#[]
 dt.kmean.cluster.Iintra = NULL#[]
 dt.kmean.cluster.size = NULL#[]
 threshold_recut_cluser = 0
-
+valid_cluster = c(FALSE)
 
 
 
@@ -374,13 +374,8 @@ nbr_k = nrow(dt)*prct_seed # select number of seed : 10% of the size of the data
 nbr_k = as.integer(nbr_k)
 dt.kmean = kmeans(scale(dt), nbr_k, nstart = nstart)
 #hclust on centroids
-pockets_cluster = NULL
-for (i in 1:nbr_k) {
-  print(i)
-  pockets_cluster = names(which(dt.kmean$cluster == i))
-  dt.hclust = hclust(dist(scale(dt[pockets_cluster,])), method = "ward.D2")
-}
-plot(dt.hclust,main = "", hang = -0.1)
+dt_centers.hclust = hclust(dist(scale(dt.kmean$centers)), method = "ward.D2")
+plot(dt_centers.hclust,main = "", hang = -0.1)
 nbr_k_optimal = 10
 #second k mean with optimal number of seeds
 dt.kmean = kmeans(scale(dt), nbr_k_optimal, nstart = nstart)
@@ -394,19 +389,128 @@ dt.kmean = kmeans(scale(dt), nbr_k_optimal, nstart = nstart)
 path_tree = "alltree"
 pockets_cluster = NULL
 
-cluster_dt = data.frame(centers = dt.kmean$centers, withinss = dt.kmean$withinss, size = dt.kmean$size)
-cluster_dt$pathString = paste(path_tree, 1:nbr_k_optimal,sep = "/")
-population <- as.Node(cluster_dt)
+for (i in 1:nbr_k_optimal){
+  pockets_cluster[[i]] = names(which(dt.kmean$cluster == i))
+}
+cluster_dt = data.frame(centers = dt.kmean$centers,
+                        withinss = dt.kmean$withinss,
+                        size = dt.kmean$size,
+                        pockets_names = I(pockets_cluster))
+
+cluster_dt$pathString = paste(path_tree, 1, 1:nbr_k_optimal,sep = "/")
+
+tmp = rbind(tmp, cluster_dt)
+population <- as.Node(tmp)
 print(population, "size", limit = 20)
 #TODO : add list of names in infos of the tree
 for (i in 1:nbr_k_optimal){
-  pockets_cluster = c(pockets_cluster, names(which(dt.kmean$cluster == i)))
+  pockets_cluster[[i]] = names(which(dt.kmean$cluster == i))
 }
 
-pockets_classificcation_tree = function(nstart = 1, path_tree = "alltree"){
+pockets_classification_tree = function(dt,
+                                       nstart = 1,
+                                       prct_seed = 1/100,
+                                       path_tree = "alltree"){
+  #first k mean
+  nbr_k = nrow(dt)*prct_seed # select number of seed : 10% of the size of the data
+  nbr_k = as.integer(nbr_k)
+  dt.kmean = kmeans(scale(dt), nbr_k, nstart = nstart)
+  #hclust on centroids
+  print(nrow(dt.kmean$centers))
+  dt_centers.hclust = hclust(dist(scale(dt.kmean$centers)), method = "ward.D2")
+  #plot(dt_centers.hclust,main = "", hang = -0.1)
+  ##
+  #TODO:select K optimal
+  ##
+  nbr_k_optimal = 10
+  #seceond kmean
+  dt.kmean = kmeans(scale(dt), nbr_k_optimal, nstart = nstart)
+  pockets_cluster = list()
+  for (i in 1:nbr_k_optimal){
+    pockets_cluster[[i]] = names(which(dt.kmean$cluster == i))
+  }
+  cluster_dt = data.frame(centers = dt.kmean$centers,
+                          withinss = dt.kmean$withinss,
+                          size = dt.kmean$size,
+                          pockets_names = I(pockets_cluster))
   
+  cluster_dt$pathString = paste(path_tree, 1:nbr_k_optimal,sep = "/")
+  
+  
+  return(cluster_dt)
+}
+dt = dt_12descriptors[,]
+dt = delete_clean_data(dt)
+all_valide_clusters = F
+path_tree = c("alltree")
+list_path_tree = path_tree
+list_n_cluster = NULL
+cluster_infos = NULL
+nbr_k= 1
+pockets_cluster_names = list(row.names(dt))
+iter = 1
+valid_cluster = c(FALSE)
+while(FALSE %in% valid_cluster) {
+  for(i in 1:length(valid_cluster)){
+    if (valid_cluster[i] == FALSE) {
+      print("test")
+      cluster_dt = pockets_classification_tree(
+                                       dt = dt[unlist(pockets_cluster_names[[i]]),],
+                                       path_tree = list_path_tree[i])
+      list_n_cluster = c(list_n_cluster, nrow(cluster_dt))
+     cluster_infos = rbind(cluster_infos, cluster_dt)
+    }
+  }
+  pockets_cluster_names = cluster_dt[,"pockets_names"]
+  valid_cluster = NULL
+  list_path_tree = NULL
+  for (i in list_n_cluster) {
+    for (j in 1:i){
+      valid_cluster = c(valid_cluster, FALSE)
+      list_path_tree = c(list_path_tree, paste(path_tree , i, sep ="/"))
+    }
+  }
+
+  if(iter == 2){
+    valid_cluster = c(TRUE)
+  }
+  iter = iter + 1
+  print("t2")
+
+}
+#TODO : add list of names in infos of the tree
+alltree <- as.Node(cluster_infos)
+print(alltree, "size")
+
+#tester :mettre dans infps le n iteration et le numero de cluster
+
+
+pockets_classification_recursion = fucntion(dt, names_clust, n_k, i_k, path_tree) {
+  cluster_dt = pockets_classification_tree(
+                                          dt = dt[names_clust,],
+                                          path_tree = paste0(path_tree,i))
+  if(length(cluster_dt) < 100 && n_k == i_k){
+    print(path_tree)
+    return(TRUE)
+  }
+  if(length(cluster_dt) < 100 && n_k > i_k){
+    return(pockets_classification_recursion(dt,
+                                            n_k = n_k,
+                                            i_k = i_k+1,
+                                            path_tree = paste0(path_tree , i, sep ="/")))
+  }
+  else {
+    pockets_classification_recursion
+  }
 }
 
+#
+library(pvclust)
+library(MASS)
+dt.pv <- pvclust(t(scale(dt.kmean$centers)))
+plot(dt.pv)
+#
+dev.off()
 
 alltree <- as.Node(dt.hclust)
 dend1 <- as.dendrogram(dt.hclust)
