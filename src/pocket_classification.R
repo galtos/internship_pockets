@@ -414,7 +414,10 @@ pockets_classification_tree = function(dt,
   #first k mean
   nbr_k = nrow(dt)*prct_seed # select number of seed : 10% of the size of the data
   nbr_k = as.integer(nbr_k)
+  print("here")
+  print(nbr_k)
   dt.kmean = kmeans(scale(dt), nbr_k, nstart = nstart)
+  print("here2")
   #hclust on centroids
   print(nrow(dt.kmean$centers))
   dt_centers.hclust = hclust(dist(scale(dt.kmean$centers)), method = "ward.D2")
@@ -424,7 +427,9 @@ pockets_classification_tree = function(dt,
   ##
   nbr_k_optimal = 10
   #seceond kmean
+  print("here3")
   dt.kmean = kmeans(scale(dt), nbr_k_optimal, nstart = nstart)
+  print("here4")
   pockets_cluster = list()
   for (i in 1:nbr_k_optimal){
     pockets_cluster[[i]] = names(which(dt.kmean$cluster == i))
@@ -439,74 +444,81 @@ pockets_classification_tree = function(dt,
   
   return(cluster_dt)
 }
-dt = dt_12descriptors[,]
+dt = dt_12descriptors[,-8]
 dt = delete_clean_data(dt)
 all_valide_clusters = F
-path_tree = c("alltree")
+
 list_path_tree = path_tree
+saved_list_path_tree = NULL
 list_n_cluster = NULL
 list_pockets_cluster_names = NULL
+list_size_cluster = list()
 cluster_infos = NULL
 nbr_k= 1
 pockets_cluster_names = list(row.names(dt))
 iter = 1
 valid_cluster = c(FALSE)
-while(FALSE %in% valid_cluster) {
-  for(i in 1:length(valid_cluster)){
-    if (valid_cluster[i] == FALSE) {
-      print("test")
+previous = 0
+
+####~ workflow works ~####
+pockets_cluster_names = list(row.names(dt))
+path_tree = c("alltree")
+list_path_tree = NULL
+list_path_tree = path_tree
+tmp_pockets_cluster_names = NULL
+tmp_list_path_tree = NULL
+cluster_infos = NULL
+n = 1
+iter=1
+iter_path = 1
+for (iter in 1:3) {
+  for(i in 1:length(pockets_cluster_names)) {
+    if(!is.null(pockets_cluster_names[[i]])) {
       cluster_dt = pockets_classification_tree(
-                                       dt = dt[unlist(pockets_cluster_names[[i]]),],
-                                       path_tree = list_path_tree[i])
-      list_n_cluster = c(list_n_cluster, nrow(cluster_dt))
-      pockets_cluster_names = c(pockets_cluster_names, cluster_dt[,"pockets_names"])
+                                      dt = dt[unlist(pockets_cluster_names[[i]]),-8],
+                                      path_tree = list_path_tree[iter_path])
       cluster_infos = rbind(cluster_infos, cluster_dt)
+      print("hei")
+      print(list_path_tree[iter_path])
+      iter_path = iter_path + 1
+      
+      for (j in 1:nrow(cluster_dt)) {
+        if(cluster_dt[j,"size"] > 400) {
+          tmp_pockets_cluster_names[[n]] = unlist(cluster_dt[j,"pockets_names"])
+          tmp_list_path_tree = c(tmp_list_path_tree, paste(list_path_tree[i], j, sep ="/"))
+        }
+        n=n+1
+      }
     }
   }
-  
-  valid_cluster = NULL
-  list_path_tree = NULL
-  for (i in list_n_cluster) {
-    print(i)
-    for (j in 1:i){
-      valid_cluster = c(valid_cluster, FALSE)
-      list_path_tree = c(list_path_tree, paste(path_tree , j, sep ="/"))
-    }
-  }
-  list_n_cluster = NULL
-  if(iter == 3){
-    valid_cluster = c(TRUE)
-  }
-  iter = iter + 1
-  if(iter == 2) {
-    print("t3")
-    print(valid_cluster)
-  }
+  pockets_cluster_names = tmp_pockets_cluster_names
+  list_path_tree = tmp_list_path_tree
+  iter_path = 1
+  tmp_pockets_cluster_names = NULL
+  tmp_list_path_tree = NULL
+  print(iter)
 }
 alltree <- as.Node(cluster_infos)
-print(alltree, "size")
+print(alltree, "size","withinss")
+alltree$fieldsAll
+#to have access to vthe values:
+372+195+494+517+325+277+215+156+374+232
+55+81+59+48+50+97+74+107+59+70
+print(alltree$`2`$centers.VOLUME_HULL)
+alltree$`1`$withinss
 
-#tester :mettre dans infps le n iteration et le numero de cluster
-
-
-pockets_classification_recursion = fucntion(dt, names_clust, n_k, i_k, path_tree) {
-  cluster_dt = pockets_classification_tree(
-                                          dt = dt[names_clust,],
-                                          path_tree = paste0(path_tree,i))
-  if(length(cluster_dt) < 100 && n_k == i_k){
-    print(path_tree)
-    return(TRUE)
-  }
-  if(length(cluster_dt) < 100 && n_k > i_k){
-    return(pockets_classification_recursion(dt,
-                                            n_k = n_k,
-                                            i_k = i_k+1,
-                                            path_tree = paste0(path_tree , i, sep ="/")))
-  }
-  else {
-    pockets_classification_recursion
+#
+v=0
+for(i in 1:length(pockets_cluster_names)) {
+  if(!is.null(pockets_cluster_names[[i]])) {
+    v = v+1
+    print(length(pockets_cluster_names[[i]]))
   }
 }
+v
+
+
+#tester :mettre dans infps le n iteration et le numero de cluster
 
 #
 library(pvclust)
@@ -515,14 +527,15 @@ dt.pv <- pvclust(t(scale(dt.kmean$centers)))
 plot(dt.pv)
 #
 dev.off()
-
-alltree <- as.Node(dt.hclust)
+dt.hclust = dt_centers.hclust
+#alltree <- as.Node(dt.hclust)
 dend1 <- as.dendrogram(dt.hclust)
-alltree <- as.Node(dend1)
-alltree$fieldsAll
-alltree$totalCount
-alltree$leafCount
-alltree$height
+tree <- as.Node(dend1)
+tree
+tree $fieldsAll
+tree $totalCount
+tree $leafCount
+tree $height
 #plot(alltree)
 library(DiagrammR)
 
