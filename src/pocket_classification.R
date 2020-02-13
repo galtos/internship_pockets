@@ -402,14 +402,14 @@ cluster_dt$pathString = paste(path_tree, 1, 1:nbr_k_optimal,sep = "/")
 tmp = rbind(tmp, cluster_dt)
 population <- as.Node(tmp)
 print(population, "size", limit = 20)
-#TODO : add list of names in infos of the tree
+
 for (i in 1:nbr_k_optimal){
   pockets_cluster[[i]] = names(which(dt.kmean$cluster == i))
 }
 
 pockets_classification_tree = function(dt,
                                        nstart = 1,
-                                       prct_seed = 1/100,
+                                       prct_seed = 10/100,
                                        path_tree = "alltree"){
   #first k mean
   nbr_k = nrow(dt)*prct_seed # select number of seed : 10% of the size of the data
@@ -471,41 +471,124 @@ cluster_infos = NULL
 n = 1
 iter=1
 iter_path = 1
-for (iter in 1:3) {
+for (iter in 1:4) {
   for(i in 1:length(pockets_cluster_names)) {
     if(!is.null(pockets_cluster_names[[i]])) {
       cluster_dt = pockets_classification_tree(
-                                      dt = dt[unlist(pockets_cluster_names[[i]]),-8],
+                                      dt = dt[unlist(pockets_cluster_names[[i]]),c(-2,-8)],
                                       path_tree = list_path_tree[iter_path])
       cluster_infos = rbind(cluster_infos, cluster_dt)
       print("hei")
       print(list_path_tree[iter_path])
-      iter_path = iter_path + 1
       
       for (j in 1:nrow(cluster_dt)) {
         if(cluster_dt[j,"size"] > 400) {
           tmp_pockets_cluster_names[[n]] = unlist(cluster_dt[j,"pockets_names"])
-          tmp_list_path_tree = c(tmp_list_path_tree, paste(list_path_tree[i], j, sep ="/"))
+          tmp_list_path_tree = c(tmp_list_path_tree, paste(list_path_tree[iter_path], j, sep ="/"))
         }
         n=n+1
       }
+      iter_path = iter_path + 1
     }
   }
   pockets_cluster_names = tmp_pockets_cluster_names
   list_path_tree = tmp_list_path_tree
   iter_path = 1
+  n = 1
   tmp_pockets_cluster_names = NULL
   tmp_list_path_tree = NULL
   print(iter)
 }
 alltree <- as.Node(cluster_infos)
 print(alltree, "size","withinss")
+#### Compute distance of a new value in the tree ####
+new_pocket = data.frame(centers.C_RESIDUES = alltree$`1`$`1`$centers.C_RESIDUES,
+                        centers.DIAMETER_HULL = alltree$`1`$`1`$centers.DIAMETER_HULL,
+                        centers.hydrophobic_kyte = alltree$`1`$`1`$centers.hydrophobic_kyte,
+                        centers.p_aliphatic_residues = alltree$`1`$`1`$centers.p_aliphatic_residues,
+                        centers.p_aromatic_residues = alltree$`1`$`1`$centers.p_aromatic_residues,
+                        centers.p_hydrophobic_residues = alltree$`1`$`1`$centers.p_hydrophobic_residues,
+                        centers.p_Ooh_atom = alltree$`1`$`1`$centers.p_Ooh_atom,
+                        centers.p_polar_residues = alltree$`1`$`1`$centers.p_polar_residues,
+                        centers.VOLUME_HULL = alltree$`1`$`1`$centers.VOLUME_HULL
+                        )
+new_pocket
+alltree$Do(function(node) node$dist <- dist(rbind(c(
+                                                    node$centers.C_RESIDUES,
+                                                    node$centers.DIAMETER_HULL,
+                                                    node$centers.hydrophobic_kyte,
+                                                    node$centers.p_aliphatic_residues,
+                                                    node$centers.p_aromatic_residues,
+                                                    node$centers.p_hydrophobic_residues,
+                                                    node$centers.p_Ooh_atom,
+                                                    node$centers.p_polar_residues,
+                                                    node$centers.VOLUME_HULL
+                                                    ),
+                                                    new_pocket)))
+dist(rbind(c(alltree$`1`$`1`$centers.C_RESIDUES,
+             alltree$`1`$`1`$centers.DIAMETER_HULL,
+             alltree$`1`$`1`$centers.hydrophobic_kyte,
+             alltree$`1`$`1`$centers.p_aliphatic_residues,
+             alltree$`1`$`1`$centers.p_aromatic_residues,
+             alltree$`1`$`1`$centers.p_hydrophobic_residues,
+             alltree$`1`$`1`$centers.p_Ooh_atom,
+             alltree$`1`$`1`$centers.p_polar_residues,
+             alltree$`1`$`1`$centers.VOLUME_HULL
+             ),new_pocket))
+
+dist(rbind(1:10,1:10))
+
+print(alltree, "size", "dist")
+print(alltree$`1`$`1`, "size", "dist")
+Sort(alltree, "dist", decreasing = FALSE)
+
+###Get access to informations in the tree###
+alltree$fieldsAll
+#ntotal clusters
+alltree$totalCount
+#sort
+Sort(alltree, "size", decreasing = TRUE)
+#max
+maxSize <- Aggregate(alltree, "size", max)
+alltree$Get("name", filterFun = function(x) x$isLeaf && x$size == maxSize)
+#plot according Iintra
+plot(as.dendrogram(alltree, heightAttribute = "withinss"))
+
+
+alltree$`1`$isLeaf
+print(alltree$children[[5]]$`2`$`10`,"size")
+
+length(alltree$children[[1]])
+
+for (i in 1:10) {
+  print(alltree$children[[i]], "size","withinss")
+}
+alltree$averageBranchingFactor
+
+length(alltree$children)
+alltree$Do()
+
+#test for distance calculation
+data(acme)
+acme$fieldsAll
+print(acme, "cost","p")
+new = data.frame(cost = 30000, p = 0.50)
+new_bis = data.frame(cost = 40000, p = 0.60)
+new = c(51000,0.9)
+new_bis = c(40000,0.6)
+dist(rbind(new,new_bis))
+
+acme$Do(function(node) node$dist <- dist(rbind(c(node$p,node$cost),new)))
+print(acme, "expectedCost", "p", "cost", "dist")
+###
 alltree$fieldsAll
 #to have access to vthe values:
-372+195+494+517+325+277+215+156+374+232
-55+81+59+48+50+97+74+107+59+70
+107+87+95+54+96+151+42+137+117+115
 print(alltree$`2`$centers.VOLUME_HULL)
-alltree$`1`$withinss
+alltree$`1`$`1`$`1`$pockets_names
+alltree$`1`$`1`$pockets_names
+
+intersect(unlist(alltree$`1`$`1`$`1`$pockets_names), unlist(alltree$`1`$`1`$pockets_names))
 
 #
 v=0
