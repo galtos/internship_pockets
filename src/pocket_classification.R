@@ -10,6 +10,45 @@ dt_72descriptors = read.table("../data/data_72desc.csv", header = T, sep = "\t",
 dt_12descriptors = read.table("../data/data_desc.csv", header = T, sep = ",", row.names = 1)
 dt_drug = read.table("../data/data_drug.txt", header = T, sep = ";", row.names = 1)
 ##change row names to PDB_LIG_CHAIN_NBR
+#deal with big FP file
+
+processFile = function(filepath, dt, fileConn) {
+  con = file(filepath, "r")
+  dt_pharmacophores = NULL
+  i=0
+  while ( TRUE ) {
+    line = readLines(con, n = 1)
+    if ( length(line) == 0 ) {
+      break
+    }
+    line_split = unlist(strsplit(line, split=";"))
+    name_pharmacophore = paste(gsub("PDB=| ","",line_split[2]), gsub(".*/prox5_5/|_prox5_5_res_res-renum.pdb", "", line_split[1]), sep = "_")
+    #print(name_pharmacophore)
+    line_split[1] = toupper(name_pharmacophore)
+    line_split = line_split[-2]
+    #print(paste(line_split, collapse =";"))
+    if(is.element(toupper(name_pharmacophore),row.names(dt))) {
+      #dt_pharmacophores = rbind(dt_pharmacophores, line_split[-2])
+      print(i)
+      cat(paste(line_split, collapse =";"), file = "../data/FPCount_save_all_inter_dt12.txt",append=TRUE)
+      cat("\n",file = "../data/FPCount_save_all_inter_dt12.txt",append=TRUE)
+
+    }
+    i=i+1
+  }
+  close(con)
+}
+processFile("../data/FPCount_save_all.txt", dt, fileConn)
+
+dt_pharmacophores = read.table("../data/FPCount_save_all_inter_dt12.txt", sep = ";", row.names = 1)
+
+
+rownames(dt_pharmacophores) = toupper(dt_pharmacophores[,1])
+dt_pharmacophores = as.data.frame(dt_pharmacophores)
+dt_pharmacophores[,1] = NULL
+colnames(dt_pharmacophores) = 1:ncol(dt_pharmacophores)
+write.table(dt_pharmacophores, "../data/FPCount_save_element_dt12.txt")
+
 #pharmacophores
 row_names_pharmacophores = paste(gsub("PDB=| ","",dt_pharmacophores[,1]), gsub(".*/prox5_5/|_prox5_5_res_res-renum.pdb", "", rownames(dt_pharmacophores)), sep = "_")
 rownames(dt_pharmacophores) = toupper(row_names_pharmacophores)
@@ -109,13 +148,14 @@ row.names(dt) =  dt$Row.names
 dt$Row.names = NULL
 ####ACP####
 #dt.acp = PCA(dt, scale.unit = T,quali.sup=13) #normalisé automatiquement
-dt.acp = PCA(dt, scale.unit = T)
+dt.acp = PCA(dt, scale.unit = F)
 dt.acp$eig
 dt.acp$ind$contrib
 dt.acp$var$contrib
 plot(dt.acp)
 #plot(dt.acp,habillage = 13, col.hab = c("green","blue"), label="none")
-
+library(rgl)
+plot3d(dt.acp$scores[,1:3], col=dt.kmean$cluster)
 ####K-MEANS####
 ##K-MEANS nK = 10%; nK = 10
 dt = dt_12descriptors
@@ -123,9 +163,9 @@ dt = delete_clean_data(dt)
 #
 nbr_k = nrow(dt)*20/100
 nbr_k = as.integer(nbr_k)
-nbr_k = 20
+nbr_k = 10
 start_time <- Sys.time()
-dt.kmean = kmeans(scale(dt), nbr_k, nstart = 10)
+dt.kmean = kmeans(scale(dt), nbr_k, nstart = 1)
 end_time <- Sys.time()
 
 end_time - start_time
@@ -137,12 +177,12 @@ dt.kmean[1]
 start_time <- Sys.time()
 R2 = NULL
 inertie.expl = NULL
-n=100
+n=50
 for (i in 1:n) {
-  k = kmeans(scale(dt),centers =  i, nstart = 10) #change nstart to 10
+  k = kmeans(dt, i, nstart = 1, algorithm="MacQueen", iter.max = 200) #change nstart to 10
   R2 = c(R2,k$tot.withinss/k$totss)
-  inertie.expl = c(inertie.expl,k$betweenss/k$totss)
-  Iintra = c(Iintra.expl,k$betweenss)
+  #inertie.expl = c(inertie.expl,k$betweenss/k$totss)
+  #Iintra = c(Iintra.expl,k$betweenss)
 }
 end_time <- Sys.time()
 
@@ -169,8 +209,10 @@ hist(dt.kmean$cluster)
 max(table(dt.kmean$cluster))
 min(table(dt.kmean$cluster))
 plot(table(dt.kmean$cluster))
-plot(dt.acp,choix = "ind",col.quali = dt.kmean$cluster, title = "projection kmeans sur ACP", label="none")
-
+plot(dt.acp,choix = "ind", col.quali = dt.kmean$cluster, title = "projection kmeans sur ACP", label="none")
+#autoplot
+library(ggfortify)
+autoplot(dt.kmean, data = dt)
 ## Centroids
 dt_kmean_centroids
 dt.kmean$centers[1,]
@@ -354,113 +396,124 @@ dt.kmean = kmeans(scale(dt_pharmacophores), 10, nstart = 10)
 ###### TRUE WORKFLOW FOR CLASSIFICATION #####
 library(data.tree)
 library(treemap)
+library(gtools)
+library(ade4)
 #lets suppose we already cleaned the data: dt
-nstart = 1
+nstart = 100
 prct_seed = 10/100#10/100
-min_size_cluster =100
-
-dt.kmean.cluster = NULL#[]
-dt.kmean.cluster.centers = NULL#[]
-dt.kmean.cluster.Iintra = NULL#[]
-dt.kmean.cluster.size = NULL#[]
-threshold_recut_cluser = 0
-valid_cluster = c(FALSE)
-
-
-
-
-#first k mean
-nbr_k = nrow(dt)*prct_seed # select number of seed : 10% of the size of the data
-nbr_k = as.integer(nbr_k)
-dt.kmean = kmeans(scale(dt), nbr_k, nstart = nstart)
-#hclust on centroids
-dt_centers.hclust = hclust(dist(scale(dt.kmean$centers)), method = "ward.D2")
-plot(dt_centers.hclust,main = "", hang = -0.1)
-nbr_k_optimal = 10
-#second k mean with optimal number of seeds
-dt.kmean = kmeans(scale(dt), nbr_k_optimal, nstart = nstart)
-#hclust on optimal number of centroids
-#dt_centers.hclust = hclust(dist(scale(dt.kmean$centers)), method = "ward.D2")
-#dend1 <- as.dendrogram(dt_centers.hclust)
-#alltree <- as.Node(dend1)
-#population$height
-
-#save centroids in data.tree
-path_tree = "alltree"
-pockets_cluster = NULL
-
-for (i in 1:nbr_k_optimal){
-  pockets_cluster[[i]] = names(which(dt.kmean$cluster == i))
-}
-cluster_dt = data.frame(centers = dt.kmean$centers,
-                        withinss = dt.kmean$withinss,
-                        size = dt.kmean$size,
-                        pockets_names = I(pockets_cluster))
-
-cluster_dt$pathString = paste(path_tree, 1, 1:nbr_k_optimal,sep = "/")
-
-tmp = rbind(tmp, cluster_dt)
-population <- as.Node(tmp)
-print(population, "size", limit = 20)
-
-for (i in 1:nbr_k_optimal){
-  pockets_cluster[[i]] = names(which(dt.kmean$cluster == i))
-}
+min_size_cluster = 100
 
 pockets_classification_tree = function(dt,
-                                       nstart = 1,
-                                       prct_seed = 10/100,
-                                       path_tree = "alltree"){
+                                       nstart = 100,
+                                       path_tree = "alltree",
+                                       dt_pharmacophores){ # be careful to scale the data before
+  #prct_seed=10/100
   #first k mean
-  nbr_k = nrow(dt)*prct_seed # select number of seed : 10% of the size of the data
-  nbr_k = as.integer(nbr_k)
-  print("here")
-  print(nbr_k)
-  dt.kmean = kmeans(scale(dt), nbr_k, nstart = nstart)
-  print("here2")
+  #nbr_k = nrow(dt)*prct_seed # select number of seed : 10% of the size of the data
+  #nbr_k = as.integer(nbr_k)
+
+  #dt.kmean = kmeans(scale(dt), nbr_k, nstart = nstart)
   #hclust on centroids
-  print(nrow(dt.kmean$centers))
-  dt_centers.hclust = hclust(dist(scale(dt.kmean$centers)), method = "ward.D2")
-  #plot(dt_centers.hclust,main = "", hang = -0.1)
+
+  #dt_centers.hclust = hclust(dist(scale(dt.kmean$centers)), method = "ward.D2")
   ##
   #TODO:select K optimal
   ##
   nbr_k_optimal = 10
   #seceond kmean
-  print("here3")
-  dt.kmean = kmeans(scale(dt), nbr_k_optimal, nstart = nstart)
-  print("here4")
+  print("here1")
+  #dt.kmean = kmeans(dt, centers = nbr_k_optimal, nstart = nstart, iter.max = 200)
+  dt.kmean = kmeans(dt, 10, nstart = nstart, algorithm="MacQueen", iter.max = 200)
+
+  print("here2")
   pockets_cluster = list()
+  #pharmacophores_consensus_mean_cluster = list()
+  #pharmacophores_consensus_50_cluster = list()
   for (i in 1:nbr_k_optimal){
     pockets_cluster[[i]] = names(which(dt.kmean$cluster == i))
+    #pharmacophores_consensus_mean_cluster[[i]] = apply(dt_pharmacophores[intersect(rownames(dt_pharmacophores),
+    #                                  names(which(dt.kmean$cluster == i))),], 2,
+    #                                  function(x) v <- as.integer(mean(x)))
+    #pharmacophores_consensus_50_cluster[[i]] = apply(dt_pharmacophores[intersect(rownames(dt_pharmacophores),
+    #                                                                names(which(dt.kmean$cluster == i))),], 2, function(x) {
+    #                                                                if(length(which(x>=1)) >= length(x)/2) {
+    #                                                                  return(as.integer(mean(x)))
+    #                                                                } else {
+    #                                                                  return(0)
+    #                                                                }
+    #                                                              })
   }
   cluster_dt = data.frame(centers = dt.kmean$centers,
                           withinss = dt.kmean$withinss,
                           size = dt.kmean$size,
-                          pockets_names = I(pockets_cluster))
+                          betweenss = rep(dt.kmean$betweenss, nbr_k_optimal),
+                          totss = rep(dt.kmean$totss, nbr_k_optimal),
+                          pockets_names = I(pockets_cluster)#,
+                          #pharmacophores_consensus_mean = I(pharmacophores_consensus_mean_cluster),
+                          #pharmacophores_consensus_50 = I(pharmacophores_consensus_50_cluster)
+                          )
   
   cluster_dt$pathString = paste(path_tree, 1:nbr_k_optimal,sep = "/")
   
   
   return(cluster_dt)
 }
-dt = dt_12descriptors[,-8]
-dt = delete_clean_data(dt)
-all_valide_clusters = F
+#### with pharmacophores ####
+dt_pharmacophores[1:5,1:1000]
+length(rownames(dt_pharmacophores))
+length(rownames(dt_12descriptors))
+names_pharmacophores_descriptors = intersect(rownames(dt_pharmacophores), rownames(dt))
+length(names_pharmacophores_descriptors)
 
-list_path_tree = path_tree
-saved_list_path_tree = NULL
-list_n_cluster = NULL
-list_pockets_cluster_names = NULL
-list_size_cluster = list()
-cluster_infos = NULL
-nbr_k= 1
-pockets_cluster_names = list(row.names(dt))
-iter = 1
-valid_cluster = c(FALSE)
-previous = 0
+dt_pharmacophores_consensus = dt_pharmacophores[1:5,1:1000]
+pharmacophores_consensus_mean = apply(dt_pharmacophores[,], 2, function(x) v <- as.integer(mean(x)))
+pharmacophores_consensus_max = apply(dt_pharmacophores[,], 2, function(x) v <- as.integer(mean(x)))
 
+pharmacophores_consensus_50 = apply(dt_pharmacophores[,], 2, function(x) {
+  if(length(which(x>=1)) >= length(x)/2) {
+    return(as.integer(mean(x)))
+  } else {
+    return(0)
+  }
+  })
+length(which(pharmacophores_consensus_50>= 1))
+length(which(dt_pharmacophores[6,]>= 1))
+
+length(which(dt_pharmacophores[,100]>=1))
+length(dt_pharmacophores[,100])/2
+
+dt_pharmacophores[1:5,485]
+pharmacophores_consensus_mean[485]
+pharmacophores_consensus_sum[927]
+dt_ph = c(0,2,0,1,0,1)
+sum(dt_ph >= 1)
+
+apply(dt_pharmacophores[intersect(rownames(dt_pharmacophores),
+                                  names(which(dt.kmean$cluster == 1))),], 2,
+                                  function(x) v <- as.integer(mean(x)))
+length(intersect(rownames(dt_pharmacophores), names(which(dt.kmean$cluster == 1))))
+length(names(which(dt.kmean$cluster == 1)))
+length(intersect(rownames(dt_pharmacophores), rownames(dt_12descriptors)))
+##
+names_physicochemical = c('p_aliphatic_residues','p_Otyr_atom','p_NE2_atom','p_Nlys_atom','p_Ntrp_atom',
+                      'p_Ooh_atom','p_ND1_atom')
+names_geometrical = c('C_ATOM','RADIUS_CYLINDER','CONVEX.SHAPE_COEFFICIENT','RADIUS_HULL','C_RESIDUES','SURFACE_HULL')
 ####~ workflow works ~####
+#dt = dt_72descriptors[,]
+dt = dt_12descriptors[intersect(rownames(dt_pharmacophores), rownames(dt_12descriptors)),]
+dt = dt_12descriptors[,]#names_pharmacophores_descriptors,]#c(-8,-2)]
+#dt = round(dt,digits=4)
+#dt[which(dt[,8] == 0),8] = 0.000000001 #to avoid issue with the k means
+#dt[which(dt[,2] == 0),2] = 0.000000001
+summary(dt)
+dt = delete_clean_data(dt)
+#dt = dt[,names_physicochemical]
+#dt = dt[,names_geometrical]
+#mix data
+#dt = dt[sample(1:nrow(dt)),]
+#scale data
+dt = scale(dt)
+#
 pockets_cluster_names = list(row.names(dt))
 path_tree = c("alltree")
 list_path_tree = NULL
@@ -468,24 +521,27 @@ list_path_tree = path_tree
 tmp_pockets_cluster_names = NULL
 tmp_list_path_tree = NULL
 cluster_infos = NULL
+nstart = 100
 n = 1
 iter=1
 iter_path = 1
-for (iter in 1:4) {
+for (iter in 1:3) {
   for(i in 1:length(pockets_cluster_names)) {
     if(!is.null(pockets_cluster_names[[i]])) {
       cluster_dt = pockets_classification_tree(
-                                      dt = dt[unlist(pockets_cluster_names[[i]]),c(-2,-8)],
-                                      path_tree = list_path_tree[iter_path])
+                                      dt = dt[unlist(pockets_cluster_names[[i]]),],
+                                      nstart = nstart,
+                                      path_tree = list_path_tree[iter_path],
+                                      dt_pharmacophores = dt_pharmacophores)
       cluster_infos = rbind(cluster_infos, cluster_dt)
       print("hei")
       print(list_path_tree[iter_path])
       
       for (j in 1:nrow(cluster_dt)) {
-        if(cluster_dt[j,"size"] > 400) {
+        if(cluster_dt[j,"withinss"] > 400 && cluster_dt[j,"size"] > 20) {
           tmp_pockets_cluster_names[[n]] = unlist(cluster_dt[j,"pockets_names"])
           tmp_list_path_tree = c(tmp_list_path_tree, paste(list_path_tree[iter_path], j, sep ="/"))
-        }
+        } #TODO:add hierachical clustering
         n=n+1
       }
       iter_path = iter_path + 1
@@ -500,68 +556,263 @@ for (iter in 1:4) {
   print(iter)
 }
 alltree <- as.Node(cluster_infos)
+print(alltree, "size","withinss", "totss", "betweenss")
+print(alltree, "size","withinss", "centers.hydrophobic_kyte", "centers.p_Nlys_atom", "centers.p_Ntrp_atom")
+alltree$fieldsAll
+##save tree
+save(alltree, file = "../results/dt_12dsc_tree_mcqueen_1000.Rdata", version = 2)
+#save scale infos
+write.table(attr(dt, "scaled:center"), file = "../results/scaled:center_dt72.Rdata")
+write.table(attr(dt, "scaled:scale"), file = "../results/scaled:scale_dt72.Rdata")
+#save min max
+write.table(rbind(apply(dt,2,max),apply(dt,2,min)), file = "../results/minmax_value_dt72.Rdata")
+#
+load(file = "../results/dt_12dsc_tree_mcqueen_1000.Rdata")
+load(file = "../results/res_12desc/dt_12dsc_tree_size400_mcqueen.Rdata")
+
+load(file = "../results/res_12desc/dt_12dsc_tree_size1000_hart.Rdata")
+
+load(file = "../results/res_12desc/dt_12dsc_tree_withinss400_mcqueen.Rdata")
+
+load(file = "../results/res_12desc/dt_12dsc_tree_withinss400_mcqueen_pharm.Rdata")
 print(alltree, "size","withinss")
+
+for (i in 1:length(alltree$children)) {
+  print(alltree$children[[i]]$size)
+  print(alltree$children[[i]]$withinss)
+}
+S_mq = NULL
+W_mq = NULL
+for (i in 1:length(alltree$children)) {
+  S_mq = c(S_mq,alltree$children[[i]]$size)
+  W_mq = c(W_mq,alltree$children[[i]]$withinss)
+}
+plot(W_mq,S_mq)
+
 #### Compute distance of a new value in the tree ####
-new_pocket = data.frame(centers.C_RESIDUES = alltree$`1`$`1`$centers.C_RESIDUES,
-                        centers.DIAMETER_HULL = alltree$`1`$`1`$centers.DIAMETER_HULL,
-                        centers.hydrophobic_kyte = alltree$`1`$`1`$centers.hydrophobic_kyte,
+new_pocket = data.frame(centers.p_polar_residues = alltree$`1`$`1`$centers.p_polar_residues,
+                        centers.p_Nlys_atom = alltree$`1`$`1`$centers.p_Nlys_atom,
                         centers.p_aliphatic_residues = alltree$`1`$`1`$centers.p_aliphatic_residues,
-                        centers.p_aromatic_residues = alltree$`1`$`1`$centers.p_aromatic_residues,
-                        centers.p_hydrophobic_residues = alltree$`1`$`1`$centers.p_hydrophobic_residues,
+                        centers.VOLUME_HULL = alltree$`1`$`1`$centers.VOLUME_HULL,
+                        centers.DIAMETER_HULL = alltree$`1`$`1`$centers.DIAMETER_HULL,
                         centers.p_Ooh_atom = alltree$`1`$`1`$centers.p_Ooh_atom,
-                        centers.p_polar_residues = alltree$`1`$`1`$centers.p_polar_residues,
-                        centers.VOLUME_HULL = alltree$`1`$`1`$centers.VOLUME_HULL
+                        centers.hydrophobic_kyte = alltree$`1`$`1`$centers.hydrophobic_kyte,
+                        centers.p_Ntrp_atom = alltree$`1`$`1`$centers.p_Ntrp_atom,
+                        centers.p_Otyr_atom = alltree$`1`$`1`$centers.p_Otyr_atom,
+                        centers.C_RESIDUES = alltree$`1`$`1`$centers.C_RESIDUES,
+                        centers.p_aromatic_residues = alltree$`1`$`1`$centers.p_aromatic_residues,
+                        centers.p_hydrophobic_residues = alltree$`1`$`1`$centers.p_hydrophobic_residues
                         )
-new_pocket
+#pocket NS1 conf0101_p0
+dt_ns1_conf0101_p0 = read.table("../data/pockets_MD_NS1/pocket_PPE_conf0101_p0.txt", header = T, sep = "\t", row.names = 1, fill=TRUE)
+dt_ns1_conf0101_p0 = dt_ns1_conf0101_p0["pocket1_atm",]
+
+dt_ns1_conf0101_p0_test = read.table("../data/pockets_MD_NS1/test/pocket0_atm.desR", header = T, sep = "\t")
+dt_ns1_conf0101_p0_test_nat = read.table("../data/pockets_MD_NS1/test/pred_user_results_pock_pocket0_atm.desR_NA.csv", header = T, sep = ",", row.names = 1)
+dt_ns1_conf0101_p0_test_nat = na.omit(dt_ns1_conf0101_p0_test_nat)
+dt_ns1_conf0101_p0_test_nath = dt_ns1_conf0101_p0_test_nat[,2]
+names(dt_ns1_conf0101_p0_test_nath) = rownames(dt_ns1_conf0101_p0_test_nat)
+
+
+new_pocket = data.frame(centers.p_polar_residues = dt_ns1_conf0101_p0[1,"Polar.residues"],
+                        #centers.p_Nlys_atom = alltree$`1`$`1`$centers.p_Nlys_atom,
+                        centers.p_aliphatic_residues = dt_ns1_conf0101_p0[1,"Aliphatic.residues"],
+                        centers.VOLUME_HULL = dt_ns1_conf0101_p0[1,"Volume.hull"],
+                        centers.DIAMETER_HULL = dt_ns1_conf0101_p0[1,"Diameter.hull"],
+                        centers.p_Ooh_atom = dt_ns1_conf0101_p0[1,"Ooh.atom"],
+                        centers.hydrophobic_kyte = dt_ns1_conf0101_p0[1,"Hydrophobic.kyte"],
+                        #centers.p_Ntrp_atom = alltree$`1`$`1`$centers.p_Ntrp_atom,
+                        centers.p_Otyr_atom = dt_ns1_conf0101_p0[1,"Otyr.atom"],
+                        centers.C_RESIDUES = dt_ns1_conf0101_p0[1,"Nb.RES"],
+                        centers.p_aromatic_residues = dt_ns1_conf0101_p0[1,"Aromatic.residues"],
+                        centers.p_hydrophobic_residues = dt_ns1_conf0101_p0[1,"Hydrophobic.residues"]
+)
+
+new_pocket = data.frame(centers.p_polar_residues = dt_ns1_conf0101_p0[1,"p_polar_residues"],
+                        centers.p_Nlys_atom = dt_ns1_conf0101_p0[1,"p_Nlys_atom"],
+                        centers.p_aliphatic_residues = dt_ns1_conf0101_p0[1,"p_aliphatic_residues"],
+                        centers.VOLUME_HULL = dt_ns1_conf0101_p0[1,"VOLUME_HULL"],
+                        centers.DIAMETER_HULL = dt_ns1_conf0101_p0[1,"DIAMETER_HULL"],
+                        centers.p_Ooh_atom = dt_ns1_conf0101_p0[1,"p_Ooh_atom"],
+                        centers.hydrophobic_kyte = dt_ns1_conf0101_p0[1,"hydrophobic_kyte"],
+                        centers.p_Ntrp_atom = dt_ns1_conf0101_p0[1,"p_Ntrp_atom"],
+                        centers.p_Otyr_atom = dt_ns1_conf0101_p0[1,"p_Otyr_atom"],
+                        centers.C_RESIDUES = dt_ns1_conf0101_p0[1,"C_RESIDUES"],
+                        centers.p_aromatic_residues = dt_ns1_conf0101_p0[1,"p_aromatic_residues"],
+                        centers.p_hydrophobic_residues = dt_ns1_conf0101_p0[1,"p_hydrophobic_residues"]
+)
+#IMPORTANT scale the data
+new_test = dt_12descriptors["4UQX_ACT_A_1",c(-2,-8)]
+new_test = scale(new_test, attr(dt, "scaled:center"), attr(dt, "scaled:scale"))
+new_pocket = scale(new_pocket, attr(dt, "scaled:center"), attr(dt, "scaled:scale"))
+
 alltree$Do(function(node) node$dist <- dist(rbind(c(
-                                                    node$centers.C_RESIDUES,
-                                                    node$centers.DIAMETER_HULL,
-                                                    node$centers.hydrophobic_kyte,
-                                                    node$centers.p_aliphatic_residues,
-                                                    node$centers.p_aromatic_residues,
-                                                    node$centers.p_hydrophobic_residues,
-                                                    node$centers.p_Ooh_atom,
                                                     node$centers.p_polar_residues,
-                                                    node$centers.VOLUME_HULL
+                                                    node$centers.p_Nlys_atom,
+                                                    node$centers.p_aliphatic_residues,
+                                                    node$centers.VOLUME_HULL,
+                                                    node$centers.DIAMETER_HULL,
+                                                    node$centers.p_Ooh_atom,
+                                                    node$centers.hydrophobic_kyte,
+                                                    node$centers.p_Ntrp_atom,
+                                                    node$centers.p_Otyr_atom,
+                                                    node$centers.C_RESIDUES,
+                                                    node$centers.p_aromatic_residues,
+                                                    node$centers.p_hydrophobic_residues
                                                     ),
                                                     new_pocket)))
-dist(rbind(c(alltree$`1`$`1`$centers.C_RESIDUES,
-             alltree$`1`$`1`$centers.DIAMETER_HULL,
-             alltree$`1`$`1`$centers.hydrophobic_kyte,
+dist(rbind(c(alltree$`1`$`1`$centers.p_polar_residues,
+             alltree$`1`$`1`$centers.p_Nlys_atom,
              alltree$`1`$`1`$centers.p_aliphatic_residues,
-             alltree$`1`$`1`$centers.p_aromatic_residues,
-             alltree$`1`$`1`$centers.p_hydrophobic_residues,
+             alltree$`1`$`1`$centers.VOLUME_HULL,
+             alltree$`1`$`1`$centers.DIAMETER_HULL,
              alltree$`1`$`1`$centers.p_Ooh_atom,
-             alltree$`1`$`1`$centers.p_polar_residues,
-             alltree$`1`$`1`$centers.VOLUME_HULL
+             alltree$`1`$`1`$centers.hydrophobic_kyte,
+             alltree$`1`$`1`$centers.p_Ntrp_atom,
+             alltree$`1`$`1`$centers.p_Otyr_atom,
+             alltree$`1`$`1`$centers.C_RESIDUES,
+             alltree$`1`$`1`$centers.p_aromatic_residues,
+             alltree$`1`$`1`$centers.p_hydrophobic_residues
              ),new_pocket))
 
 dist(rbind(1:10,1:10))
+alltree$`1`$`1`$`1`$pockets_names
 
-print(alltree, "size", "dist")
-print(alltree$`1`$`1`, "size", "dist")
+print(alltree, "size", "withinss", "dist")
+for (i in 1:length(alltree$children)) {
+  print(alltree$children[[i]], "size", "dist")
+}
 Sort(alltree, "dist", decreasing = FALSE)
+####Found closest pockets ####
+name_clust_close_1 = unlist(alltree$`1`$`1`$`4`$pockets_names)
+name_clust_close_2 = unlist(alltree$`1`$`1`$`9`$pockets_names)
 
-###Get access to informations in the tree###
+name_clust_close_test = c(unlist(alltree$`5`$`5`$`10`$pockets_names))#, unlist(alltree$`3`$pockets_names))
+name_clust_close_test = c(unlist(alltree$`2`$`8`$pockets_names), unlist(alltree$`2`$`9`$pockets_names))
+
+dist_clust_close_1 = NULL
+dist_clust_close_2 = NULL
+dist_clust_close_test = NULL
+for (name_pocket in rownames(dt[name_clust_close_1,])) {
+  dist_clust_close_1 = c(dist_clust_close_1, dist(rbind(dt[name_pocket,],new_pocket)))
+}
+for (name_pocket in rownames(dt[name_clust_close_2,])) {
+  dist_clust_close_2 = c(dist_clust_close_2, dist(rbind(dt[name_pocket,],new_pocket)))
+}
+for (name_pocket in rownames(dt[name_clust_close_test,])) {
+  dist_clust_close_test = c(dist_clust_close_test, dist(rbind(dt[name_pocket,],new_pocket)))
+}
+names(dist_clust_close_1) = rownames(dt[name_clust_close_1,])
+names(dist_clust_close_2) = rownames(dt[name_clust_close_2,])
+names(dist_clust_close_test) = rownames(dt[name_clust_close_test,])
+
+min(dist_clust_close_1)
+min(dist_clust_close_2)
+
+dist(rbind(dt["1GTV_TMP_B_1",], new_pocket))
+intersect("1GTV_TMP_B_1", names(dist_clust_close_test))
+dt_12descriptors["1GTV_TMP_B_1",]
+
+dist_clust_close_1[which(dist_clust_close_1 < 3.57)]
+dist_clust_close_2[which(dist_clust_close_2 < 3.57)]
+names(which(dist_clust_close_1 < 3.57))
+names(which(dist_clust_close_2 < 3.57))
+#on test
+intersect(names(dt_ns1_conf0101_p0_test_nath), names(dist_clust_close_test))
+dt_ns1_conf0101_p0_test_nath[names(dist_clust_close_test)]
+
+dist_clust_close_test["1GTV_TMP_B_1"]
+dist_clust_close_test["3FVF_1JZ_B_1"]
+min(dist_clust_close_test)
+
+length(dist_clust_close_test)
+length(names(which(dt_ns1_conf0101_p0_test_nath < 3)))
+length(intersect(names(which(dt_ns1_conf0101_p0_test_nath < 3)), names(dist_clust_close_test)))
+
+name_intersect_test = intersect(names(which(dt_ns1_conf0101_p0_test_nath < 2)), names(dist_clust_close_test))
+unique(names(dist_clust_close_test))
+
+which(dist_clust_close_test == min(dist_clust_close_test))
+
+length(which(dist_clust_close_test < 2.5))
+dt_ns1_test_merge = merge(dt_ns1_conf0101_p0_test_nath, dist_clust_close_test, by = intersect(names(dt_ns1_conf0101_p0_test_nath), names(dist_clust_close_test)))
+dt_ns1_test_merge = data.frame(nath = dt_ns1_conf0101_p0_test_nath[names(dist_clust_close_test)], me = dist_clust_close_test, row.names = names(dist_clust_close_test))
+
+####search by pharmacophores ####
+v_ph_1 = unlist(alltree$`1`$`1`$pharmacophores_consensus_mean)
+v_ph_2 = unlist(alltree$`2`$pharmacophores_consensus_mean)
+length(v_ph_1)
+
+alltree$Do(function(node) {
+  v_ph_2 = unlist(node$pharmacophores_consensus_mean)
+  if(length(v_ph_1) == length(v_ph_2)){
+    t = table(v_ph_1, v_ph_2)
+    print(node$path)
+    print(v_ph_2)
+    print(ncol(t))
+    common_non_null = sum(t[2:nrow(t),2:ncol(t)])
+    non_null_counts_Fa = sum(t[2:nrow(t),])
+    non_null_counts_Fb = sum(t[,2:ncol(t)])
+    node$val_similarity = common_non_null/min(non_null_counts_Fa,non_null_counts_Fb)
+  } else {
+    node$val_similarity = 0
+  }
+})
+alltree$`1`$centers.C_RESIDUES
+print(alltree$`1`, "size", "dist", "val_similarity", "centers.C_RESIDUES")
+print(alltree$`8`, "size", "dist", "val_similarity", "centers.C_RESIDUES")
+
+print(alltree, "size", "dist")#, "val_similarity")
+alltree$Get("val_similarity", filterFun = function(node) node$level == 2)
+alltree$Get("dist", filterFun = function(node) node$level == 2)
+Sort(alltree, "val_similarity", decreasing = TRUE)    
+
+####apply dist ####
+
+start_time <- Sys.time()
+d = as.matrix(dt[unlist(alltree$`4`$`8`$`2`$pockets_names),])
+res_d = apply(d, 1, function(x) {dist(rbind(d[1,],x))})
+end_time <- Sys.time()
+
+end_time - start_time
+
+min(res_d)
+which(res_d == min(res_d))
+res_d["4X49_G39_A_1"]
+
+#### Get access to informations in the tree ####
 alltree$fieldsAll
 #ntotal clusters
 alltree$totalCount
 #sort
-Sort(alltree, "size", decreasing = TRUE)
+Sort(alltree, "size", decreasing = FALSE)
 #max
 maxSize <- Aggregate(alltree, "size", max)
 alltree$Get("name", filterFun = function(x) x$isLeaf && x$size == maxSize)
 #plot according Iintra
-plot(as.dendrogram(alltree, heightAttribute = "withinss"))
-
+#plot(as.dendrogram(alltree, heightAttribute = "withinss"))
+plot(alltree$`1`)
 
 alltree$`1`$isLeaf
-print(alltree$children[[5]]$`2`$`10`,"size")
-
+print(alltree$children[[5]]$`2`$`10`,"size","withinss")
+print(alltree, "size", "withinss")
 length(alltree$children[[1]])
 
-for (i in 1:10) {
-  print(alltree$children[[i]], "size","withinss")
+####Save infos withinss and size####
+
+####LOOK  which cluster have a dist < 1####
+for (i in 1:length(alltree$children)) {
+  if(alltree$children[[i]]$dist < 1) {
+    print("level 1")
+    print(i)
+  }
+  for (j in 1:length(alltree$children[[i]]$children)) {
+    if(alltree$children[[i]]$children[[j]]$dist < 1) {
+      print("level 2")
+      print(i)
+      print(j)
+    }
+  }
 }
 alltree$averageBranchingFactor
 
@@ -609,6 +860,15 @@ library(MASS)
 dt.pv <- pvclust(t(scale(dt.kmean$centers)))
 plot(dt.pv)
 #
+data(acme)
+print(acme, prob = acme$Get("p", format = function(x) FormatFixedDecimal(x, 4)))
+print(acme)
+acme$Climb()
+Climb(acme, position = c(2))
+Climb(acme, name = 'IT')
+
+itClone <- Clone(acme$IT)
+
 dev.off()
 dt.hclust = dt_centers.hclust
 #alltree <- as.Node(dt.hclust)
@@ -622,8 +882,6 @@ tree $height
 #plot(alltree)
 library(DiagrammR)
 
-
-
 data(GNI2014)
 head(GNI2014)
 GNI2014$pathString <- paste("world", 
@@ -634,10 +892,456 @@ GNI2014$pathString <- paste("world",
 population <- as.Node(GNI2014)
 print(population, "iso3", "population", "GNI", limit = 20)
 
+#test kmean
+dt = dt_12descriptors[,]
+dt = delete_clean_data(dt)
+dt[,1] = 0.00000000
+summary(dt)
+dt.kmean = kmeans(scale(dt), 10, nstart = 1)
+
+#grep
+dt_12descriptors[grep("2NNL",rownames(dt_12descriptors)),]
+if (grep("9999",rownames(dt_12descriptors))) {
+  print("r")
+}
+k=1
+
+is.null(grep("2NNL_ERD", unlist(node$centers.p_polar_residues)))
+n_test = function(node){
+  print(node)
+  print(node$centers.p_polar_residues)
+  if (node$centers.p_polar_residues > 0) { 
+      print(node$centers.p_polar_residues)
+      erturn(1) 
+  } else {
+      return(0)
+  }
+}
+alltree$Do(function(node) {
+  node$test = 0
+  print(node$path)
+  print(grep("5UPJ", unlist(node$pockets_names)))
+  print(grep("6UPJ", unlist(node$pockets_names)))
+  print(grep("1MU2", unlist(node$pockets_names)))
+  #print(grep("3LM5_QUE", unlist(node$pockets_names)))
+  #print(grep("4HKN_LU2", unlist(node$pockets_names)))
+  #print(grep("4DGM_AGI", unlist(node$pockets_names)))
+},
+filterFun = function(node) node$level == 2
+)
+
+print(alltree$`8`, "test", "size")
+length(alltree$Get("size", filterFun = function(node) node$level == 5))
+
+alltree$Get("path", filterFun = function(node) node$level == 2)
+grep("1MU2",rownames(dt_12descriptors))
+
+####check inetie intra, inter, R2 (inter/total), intra/total ####
+###intra
+##1 er decoupage
+#intra
+alltree$Get("withinss", filterFun = function(node) node$level == 2)
+sum_intra = sum(alltree$Get("withinss", filterFun = function(node) node$level == 2))
+#inter
+tots = max(alltree$Get("totss", filterFun = function(node) node$level == 2))
+inter = tots - sum_intra
+tots
+inter
+#R2
+inter/tots
+#2eme decoupage
+alltree$Get("withinss", filterFun = function(node) node$level == 3)
+sum_intra = sum(alltree$Get("withinss", filterFun = function(node) node$level == 3))
+#inter
+tot = alltree$Get("totss", filterFun = function(node) node$level == 3)
+tots = sum(tot[which(names(tot) == "1")])
+inter = tots - sum_intra
+tots
+inter
+#R2
+inter/tots
+#3eme decoupage
+
+#feuilles
+w_tree = sqrt(alltree$Get("withinss", filterFun = isLeaf))
+s_tree = alltree$Get("size", filterFun = isLeaf)
+length(w_tree)
+plot(s_tree, w_tree)
+
+sum_intra = sum(alltree$Get("withinss", filterFun = isLeaf))
+#inter
+tot = alltree$Get("totss", filterFun = isLeaf)
+length(tot)
+tots = sum(tot[which(names(tot) == "1")])
+inter = tots - sum_intra
+tots
+inter
+#R2
+inter/tots
+alltree$Do(function(node) node$Rws <- node$withinss/node$size)
+print(alltree, "R2", "Rws","withinss", "size")
+Wrs = alltree$Get("Rws", filterFun = isLeaf)
+
+w_tree = alltree$Get("withinss", filterFun = isLeaf)
+bet = tots - sum(w_tree)
+bet/tots ######### here total R2
+
+R2 = alltree$Get("R2", filterFun = function(node) node$level == 4)
+
+### check bad ligands ###
+for (i in 1:alltree$averageBranchingFactor) {
+  print(length(grep("DOD", unlist(alltree$children[[i]]$pockets_names))))
+}
+length(grep("DOD", rownames(dt)))
+
+length(rownames(dt_72descriptors[grep("_DOD_", rownames(dt_72descriptors)),]))
+length(rownames(dt_72descriptors[grep("_IOD_", rownames(dt_72descriptors)),]))
+length(rownames(dt_72descriptors[grep("_IUM_", rownames(dt_12descriptors)),]))
+length(rownames(dt[grep("_D8U_", rownames(dt)),]))
+length(rownames(dt[grep("_SO4_", rownames(dt)),]))
+length(rownames(dt[grep("_FE2_", rownames(dt)),]))
+length(rownames(dt[grep("_GOL_", rownames(dt)),]))
+length(rownames(dt[grep("_FES_", rownames(dt)),]))
+length(rownames(dt[grep("_PO4_", rownames(dt)),]))
+length(rownames(dt[grep("_MSE_", rownames(dt)),]))
+length(rownames(dt[grep("_DMS_", rownames(dt)),]))
+length(rownames(dt[grep("_URE_", rownames(dt)),]))
+length(rownames(dt[grep("_FMT_", rownames(dt)),]))
+length(rownames(dt[grep("_TRS_", rownames(dt)),]))
+length(rownames(dt[grep("_NCO_", rownames(dt)),]))
+length(rownames(dt_72descriptors[grep("_HOH_", rownames(dt_72descriptors)),]))
+length(rownames(dt_72descriptors[grep("_H2O_", rownames(dt_72descriptors)),]))
+length(rownames(dt[grep("_WAT_", rownames(dt)),]))
+length(rownames(dt[grep("_NTN_", rownames(dt)),]))
+
+
+###check withinss###
+dt = dt_12descriptors
+dt = delete_clean_data(dt)
+dt = scale(dt[1:5,])
+dt.kmean = kmeans(dt, 2, nstart = 10)
+dt.kmean$centers
+dt.kmean$withinss
+dt.kmean$cluster
+
+x = dt[dt.kmean$cluster == 2,]
+
+ss <- function(x) sum(apply(x, 2, function(x) x - mean(x))^2)
+ss(x)
+
+#kmeans new
+dt.kmean = kmeans(dt, 100, nstart = 1, algorithm="MacQueen", iter.max = 200)
+#plot withinss/size
+plot(dt.kmean$size, dt.kmean$withinss)
+boxplot(dt.kmean$size)
+boxplot(dt.kmean$withinss)
+
+alltree$Do(function(node) node$sd <- sd(c(
+  node$centers.p_polar_residues,
+  node$centers.p_Nlys_atom,
+  node$centers.p_aliphatic_residues,
+  node$centers.VOLUME_HULL,
+  node$centers.DIAMETER_HULL,
+  node$centers.p_Ooh_atom,
+  node$centers.hydrophobic_kyte,
+  node$centers.p_Ntrp_atom,
+  node$centers.p_Otyr_atom,
+  node$centers.C_RESIDUES,
+  node$centers.p_aromatic_residues,
+  node$centers.p_hydrophobic_residues
+  )))
+
+alltree$`1`$`1`$`1`$sd
+
+###check withins dist with means and sd ###
+dist(dt[unlist(alltree$`1`$`1`$`1`$pockets_names),])
+alltree$Do(function(node) node$node_intra_dist <- dist(dt[unlist(node$pockets_names),]), filterFun = isLeaf)
+
+#mean at each leaf
+mean_node_intra_dist = alltree$Get(function(node) mean(node$node_intra_dist), filterFun = isLeaf)
+sd_node_intra_dist = alltree$Get(function(node) sd(node$node_intra_dist), filterFun = isLeaf)
+size_cluster = alltree$Get("size", filterFun = isLeaf)
+
+mean_node_intra_dist
+sd_node_intra_dist
+plot(mean_node_intra_dist,sd_node_intra_dist)
+length(mean_node_intra_dist)
+
+plot(size_cluster, mean_node_intra_dist)
+
+length(grep("_COC_", rownames(dt)))
+rownames(dt[c(99702,91127),])
+#within | average within
+average_node_within = alltree$Get(function(node) sqrt(node$withinss/node$size), filterFun = isLeaf)
+node_within = alltree$Get("withinss", filterFun = isLeaf)
+node_size = alltree$Get("size", filterFun = isLeaf)
+plot(node_size,average_node_within, main = "NESTED")  
+
+length(node_within)
+#in one splitting
+dt.kmean_10 = kmeans(dt, 1000, nstart = 1, algorithm="MacQueen", iter.max = 200)
+
+mean_node_intra_dist = NULL
+sd_node_intra_dist = NULL
+size_cluster = NULL
+for (i in 1:1000) {
+  mean_node_intra_dist = c(mean_node_intra_dist,mean(dist(dt[which(dt.kmean$cluster == i),])))
+  sd_node_intra_dist = c(sd_node_intra_dist, sd(dist(dt[which(dt.kmean$cluster == i),])))
+  size_cluster = c(size_cluster, length(which(dt.kmean$cluster == i)))
+}
+intersect(dt.kmean$size, size_cluster)
+
+plot(dt.kmean_10$size,sqrt(dt.kmean_10$withinss/dt.kmean$size),  xlim = c(0,550), ylim = c(0,3), main = "CLASSIC") 
+# box plot of both for 2 methods with 1000 clusters
+
+#boxplot average withins
+boxplot(cbind(sqrt(dt.kmean$withinss/dt.kmean$size),as.vector( average_node_within)), names = c("k means wtih 1000 seeds","successive k means"), main = "average withinss cluster", ylab = "average withins")
+boxplot(sqrt(dt.kmean$withinss/dt.kmean$size))
+
+#boxplot size cluster
+boxplot(cbind(dt.kmean$size, node_size), names = c("k means wtih 1000 seeds","successive k means"), main = "size clusters")
+
+#boxplot initial within cluster
+boxplot(cbind(dt.kmean$withinss, node_within), names = c("k means wtih 1000 seeds","successive k means"), main = "withinss clusters")
+
+#table 
+tree_cluster_leaf = rep(0,length(dt.kmean_10$cluster))
+names(tree_cluster_leaf) = names(dt.kmean_10$cluster)
+names_cluster_leaf = alltree$Get("pockets_names", filterFun = function(node) node$level == 3)
+for (i in 1:length(names_cluster_leaf)) {
+  tree_cluster_leaf[unlist(names_cluster_leaf[i])] = i
+}
+table_cluster = table(dt.kmean_10$cluster,tree_cluster_leaf)
+
+which(table_cluster[1,] > 0)
+
+boxplot(table_cluster[1,])
+
+plot(apply(table_cluster, 2, max))
+
+max(dt.kmean$cluster)
+
+
+matrix.sort <- function(matrix) {
+  
+  if (nrow(matrix) != ncol(matrix)) stop("Not diagonal")
+  if(is.null(rownames(matrix))) rownames(matrix) <- 1:nrow(matrix)
+  
+  row.max <- apply(matrix,1,which.max)
+  if(all(table(row.max) != 1)) stop("Ties cannot be resolved")
+  
+  return(matrix[names(sort(row.max)),])
+}
+table_cluster = matrix.sort(scale(table_cluster))
+
+#library(pheatmap)
+pheatmap(table_cluster, cluster_rows = FALSE, cluster_cols = FALSE)
+pheatmap(table_cluster[1:100,1:100], cluster_rows = FALSE, cluster_cols = FALSE)
+pheatmap(table_cluster[100:200,100:200], cluster_rows = FALSE, cluster_cols = FALSE)
+
+#### ligand protein diversity ####
+rownames(dt)
+grep("_*_",rownames(dt))
+
+names_ligand = sapply(strsplit(rownames(dt), "_"), "[", 2)
+length(which(names_ligand == "HEM"))
+
+length(which(table(names_ligand) > 1))
+
+length(unique(names_ligand))
+#names_ligand = unique(names_ligand)
+
+table_names_ligand = table(names_ligand)
+which(table_names_ligand == max(table_names_ligand))
+plot(table_names_ligand)
+table_names_ligand[which(table_names_ligand > 1000)]
+length(which(table_names_ligand > 1))
+
+names_prot = sapply(strsplit(rownames(dt), "_"), "[", 1)
+length(names_prot)
+length(unique(names_prot))
+names_prot = unique(names_prot)
+grep("1AKE", names_prot)
+names_prot[145]
+
+which(names_prot == "3AY6")
+alltree$Do(function(node) {
+  if(length(grep("_093_",unlist(node$pockets_names))) > 0) {
+    print(node$path)
+   print(length(grep("_093_",unlist(node$pockets_names))))
+  }
+},filterFun = isLeaf)
+
+### compute distance and fuzcav for ligand families ###
+##normal dist
+# dist for same ligands
+dist_ligs = rep(0,length(which(table(names_ligand) > 10)))#length(unique(names_ligand)))
+
+names_ligand_unique = unique(names_ligand)
+flag = 1
+for (i in 1:length(names_ligand_unique)){
+  #print(i)
+  index = grep(paste0(paste0("_",names_ligand_unique[i]),"_"),rownames(dt))
+  if(length(index) > 10) {
+    print(i)
+    dist_ligs[flag] = mean(dist(dt[index,]))
+    flag = flag+1
+  }
+}
+boxplot(dist_ligs)
+summary(dist_ligs)
+length(dist_ligs)
+# dist for different ligands
+
+dist_ligs_random = rep(0,1000)#length(unique(names_ligand)))
+
+for (i in 1:1000){#length(unique(names_ligand))){
+  print(i)
+  lig = sample(unique(names_ligand), 2)
+  dist_ligs_random[i] = dist(rbind(dt[sample(grep(paste0(paste0("_",lig[1]),"_"),rownames(dt)),1),],
+                                   dt[sample(grep(paste0(paste0("_",lig[2]),"_"),rownames(dt)),1),]))
+}
+hist(dist_ligs_random)
+d_random = density(dist_ligs_random) # returns the density data
+d_lig = density(dist_ligs)#dist_ligs[which(dist_ligs > 0)])
+plot(d_random)
+plot(d_lig)
 
 
 
+sm.density.compare(c(dist_ligs_random,dist_ligs), c(rep(1,length(dist_ligs_random)),rep(2,length(dist_ligs))), model = "none", xlim=c(0,10))
 
+abline(v=mean(dist_ligs), col = "blue")
+abline(v=mean(dist_ligs_random), col = "red")
+text(1,0.3,"mean = 2.60",col="blue")
+text(7,0.3,"mean = 4.41",col="red")
+mean(dist_ligs_random)
+mean(dist_ligs)
+
+lines(d_lig,col="green")
+
+library(sm)
+sm.density.compare(d_random, d_lig)
+
+mean(dt[grep("HEM",rownames(dt)),])
+
+mat_hem = dist(dt[grep("HEM",rownames(dt)),])
+min(mat_hem)
+length(mat_hem)
+
+test_vww = dist(dt[grep("VWW",rownames(dt)),])
+##fuzcav dist for pharmacophores ##
+dt = as.data.frame(dt_pharmacophores)
+
+names_ligand_unique = unique(names_ligand)
+
+dist_ligs = rep(0,1000)#length(unique(names_ligand)))
+for (i in 1:1000){#length(unique(names_ligand))){
+  print(i)
+  print("voila")
+  index = grep(paste0("_",paste0(names_ligand_unique[i],"_")),rownames(dt))
+  if(length(index) > 1) {
+    index = sample(index,2)
+    dist_ligs[i] = dist_fuzcav_ph(as.integer(dt[index[1],]), as.integer(dt[index[2],]))
+  }
+}
+hist(dist_ligs)
+d_lig = density(dist_ligs)
+
+plot(d_lig)
+
+#check results
+v_ph_1 = as.integer(dt[index[1],])
+v_ph_2 = as.integer(dt[index[2],])
+t = table(v_ph_1, v_ph_2)
+
+common_non_null = sum(t[2:nrow(t),2:ncol(t)])
+non_null_counts_Fa = sum(t[2:nrow(t),])
+non_null_counts_Fb = sum(t[,2:ncol(t)])
+val_similarity = common_non_null/min(non_null_counts_Fa,non_null_counts_Fb)
+
+
+#test call c function
+helloA <- function() {
+  system(paste(getwd(),"helloA",sep="/"))
+}
+helloA()
+
+dyn.load("helloB.so")
+helloB <- function() {
+  result <- .C("helloB",
+               greeting="")
+  return(result$greeting)
+}
+greeting <- helloA()
+class(greeting)
+greeting <- helloB()
+class(greeting)
+greeting
+
+dyn.load("helloC.so")
+helloC <- function(greeting) {
+  if (!is.character(greeting)) {
+    stop("Argument 'greeting' must be of type 'character'.")
+  }
+  result <- .C("helloC",
+               greeting=greeting,
+               count=as.integer(1))
+  return(result$count)
+}
+helloC("Bonjour tout le monde!")
+
+library("Rcpp")
+sourceCpp("dist_fuzcav.cpp")
+
+
+
+cppFunction("bool isOddCpp(int num = 10) {bool result = (num % 2 == 1);return result;}")
+cppFunction("
+double min_cpp (double a , double b){
+  if (a<b) return a;
+  return b;
+}")
+
+
+dist_fuzcav_ph(as.integer(dt_pharmacophores[1,]),as.integer(dt_pharmacophores[2,]))
+
+
+isOddCpp(42L)
+
+#### CLASSIC K MEANS ####
+dt = dt_12descriptors[,]#names_pharmacophores_descriptors,]#c(-8,-2)]
+dt = delete_clean_data(dt)
+#scale data
+dt = scale(dt)
+#
+nstart = 1
+dt.kmean = kmeans(dt, 100, nstart = nstart, algorithm="MacQueen", iter.max = 200)
+
+average_within_clusters_dist = sqrt(dt.kmean$withinss/dt.kmean$size)
+mean(average_within_clusters_dist)
+hist(average_within_clusters_dist, main = "average_within_clusters_dist CLASSIC")
+plot(density(average_within_clusters_dist), main = "average_within_clusters_dist CLASSIC n_seeds = 10")
+abline(v=mean(average_within_clusters_dist), col = "blue")
+text(2,1.25,"mean = 2.42",col="blue")
+
+#mean between pockets
+mean_node_intra_dist = NULL
+sd_node_intra_dist = NULL
+size_cluster = NULL
+for (i in 1:100) {
+  print(i)
+  mean_node_intra_dist = c(mean_node_intra_dist,mean(dist(dt[which(dt.kmean$cluster == i),])))
+  sd_node_intra_dist = c(sd_node_intra_dist, sd(dist(dt[which(dt.kmean$cluster == i),])))
+  size_cluster = c(size_cluster, length(which(dt.kmean$cluster == i)))
+}
+intersect(dt.kmean$size, size_cluster)
+
+plot(density(mean_node_intra_dist))
+
+
+
+pheatmap(dist(dt[grep("HEM",rownames(dt)),]))
 
 
 
