@@ -1072,9 +1072,9 @@ plot(size_cluster, mean_node_intra_dist)
 length(grep("_COC_", rownames(dt)))
 rownames(dt[c(99702,91127),])
 #within | average within
-average_node_within = alltree$Get(function(node) sqrt(node$withinss/node$size), filterFun = isLeaf)
-node_within = alltree$Get("withinss", filterFun = isLeaf)
-node_size = alltree$Get("size", filterFun = isLeaf)
+average_node_within = alltree$Get(function(node) sqrt(node$withinss/node$size), filterFun = function(node) node$level == 4)
+node_within = alltree$Get("withinss", filterFun = function(node) node$level == 4)
+node_size = alltree$Get("size", filterFun = function(node) node$level == 4)
 plot(node_size,average_node_within, main = "NESTED")  
 
 length(node_within)
@@ -1091,7 +1091,7 @@ for (i in 1:1000) {
 }
 intersect(dt.kmean$size, size_cluster)
 
-plot(dt.kmean_10$size,sqrt(dt.kmean_10$withinss/dt.kmean$size),  xlim = c(0,550), ylim = c(0,3), main = "CLASSIC") 
+plot(dt.kmean_10$size,sqrt(dt.kmean_10$withinss/dt.kmean_10$size),  xlim = c(0,550), ylim = c(0,3), main = "CLASSIC") 
 # box plot of both for 2 methods with 1000 clusters
 
 #boxplot average withins
@@ -1153,9 +1153,47 @@ length(unique(names_ligand))
 
 table_names_ligand = table(names_ligand)
 which(table_names_ligand == max(table_names_ligand))
-plot(table_names_ligand)
+
+plot(sort(table_names_ligand))
+
+hist(sort(table_names_ligand))
+
 table_names_ligand[which(table_names_ligand > 1000)]
 length(which(table_names_ligand > 1))
+
+#camember plot:
+df <- data.frame(
+  group = c("linked to 1 pocket", "linked ]1;10] pockets", "linked to ]10;1000[", "linked to > 1000 pockets"),
+  value = c(sum(table_names_ligand[which(table_names_ligand == 1)])/sum(table_names_ligand),
+            sum(table_names_ligand[which(table_names_ligand <= 10 & table_names_ligand > 1)])/sum(table_names_ligand),
+            sum(table_names_ligand[which(table_names_ligand <= 1000 & table_names_ligand > 10)])/sum(table_names_ligand),
+            sum(table_names_ligand[which(table_names_ligand > 1000)])/sum(table_names_ligand)
+            )
+)
+df <- data.frame(
+  group = c("linked to 1 pocket:6403", "linked to ]1;10] pockets:10314", "linked to ]10;1000[:898", "linked to > 1000 pockets:11"),
+  value = c(sum(table_names_ligand[which(table_names_ligand == 1)]),
+            sum(table_names_ligand[which(table_names_ligand <= 10 & table_names_ligand > 1)]),
+            sum(table_names_ligand[which(table_names_ligand <= 1000 & table_names_ligand > 10)]),
+            sum(table_names_ligand[which(table_names_ligand > 1000)])
+  ),
+  size = c(length(table_names_ligand[which(table_names_ligand == 1)]),
+            length(table_names_ligand[which(table_names_ligand <= 10 & table_names_ligand > 1)]),
+            length(table_names_ligand[which(table_names_ligand <= 1000 & table_names_ligand > 10)]),
+            length(table_names_ligand[which(table_names_ligand > 1000)])
+  )
+)
+library(ggplot2)
+# Bar plot
+bp<- ggplot(df, aes(x="", y=value, fill=group))+
+  geom_bar(width = 1, stat = "identity")
+
+bp + theme(legend.text = element_text(colour="black", size=12, 
+                                   face="bold"))
+
+plot(sort(table_names_ligand), breaks = 4)
+
+barplot(df$value,df$size, names.arg = c("[1]","]1;10]","]10;1000]","]1000;["))
 
 names_prot = sapply(strsplit(rownames(dt), "_"), "[", 1)
 length(names_prot)
@@ -1175,14 +1213,14 @@ alltree$Do(function(node) {
 ### compute distance and fuzcav for ligand families ###
 ##normal dist
 # dist for same ligands
-dist_ligs = rep(0,length(which(table(names_ligand) > 10)))#length(unique(names_ligand)))
+dist_ligs = rep(0,length(which(table(names_ligand) > 1)))#length(unique(names_ligand)))
 
 names_ligand_unique = unique(names_ligand)
 flag = 1
 for (i in 1:length(names_ligand_unique)){
   #print(i)
   index = grep(paste0(paste0("_",names_ligand_unique[i]),"_"),rownames(dt))
-  if(length(index) > 10) {
+  if(length(index) > 1) {
     print(i)
     dist_ligs[flag] = mean(dist(dt[index,]))
     flag = flag+1
@@ -1235,20 +1273,52 @@ dt = as.data.frame(dt_pharmacophores)
 
 names_ligand_unique = unique(names_ligand)
 
-dist_ligs = rep(0,1000)#length(unique(names_ligand)))
-for (i in 1:1000){#length(unique(names_ligand))){
+dist_ligs = rep(0,100)#length(unique(names_ligand)))
+flag = 0
+for (i in 1:100){#length(unique(names_ligand))){
   print(i)
   print("voila")
   index = grep(paste0("_",paste0(names_ligand_unique[i],"_")),rownames(dt))
   if(length(index) > 1) {
     index = sample(index,2)
-    dist_ligs[i] = dist_fuzcav_ph(as.integer(dt[index[1],]), as.integer(dt[index[2],]))
+    flag = flag+1
+    dist_ligs[flag] = dist_fuzcav_ph(as.integer(dt[index[1],]),
+                                  as.integer(dt[index[2],]))
   }
 }
 hist(dist_ligs)
-d_lig = density(dist_ligs)
+d_lig = density(dist_ligs[1:flag])
 
 plot(d_lig)
+# dist for different ligands
+
+dist_ligs_random = rep(0,100)#length(unique(names_ligand)))
+for (i in 1:100){#length(unique(names_ligand))){
+  print(i)
+  lig = sample(names_ligand_unique, 2)
+  f_1=grep(paste0(paste0("_",lig[1]),"_"),rownames(dt))
+  f_2=grep(paste0(paste0("_",lig[2]),"_"),rownames(dt))
+  if(length(f_1) > 1) {
+    f_1 = sample(f_1,1)
+  }
+  if(length(f_2) > 1) {
+    f_2 = sample(f_2,1)
+  }
+  dist_ligs_random[i] = dist_fuzcav_ph(as.integer(dt[f_1,]),
+                                       as.integer(dt[f_2,]))
+}
+hist(dist_ligs_random)
+d_random = density(dist_ligs_random)
+plot(d_random)
+#
+sm.density.compare(c(dist_ligs_random,dist_ligs[1:flag]), c(rep(1,length(dist_ligs_random)),rep(2,length(dist_ligs[1:flag]))), model = "none", xlim=c(0,1))
+
+abline(v=mean(dist_ligs[1:flag]), col = "blue")
+abline(v=mean(dist_ligs_random), col = "red")
+text(0.6,8,"mean = 0.43",col="blue")
+text(0.3,8,"mean = 0.15",col="red")
+mean(dist_ligs_random)
+mean(dist_ligs[1:flag])
 
 #check results
 v_ph_1 = as.integer(dt[index[1],])
@@ -1292,7 +1362,7 @@ helloC <- function(greeting) {
 helloC("Bonjour tout le monde!")
 
 library("Rcpp")
-sourceCpp("dist_fuzcav.cpp")
+sourceCpp("C_code/dist_fuzcav.cpp")
 
 
 
@@ -1342,6 +1412,61 @@ plot(density(mean_node_intra_dist))
 
 
 pheatmap(dist(dt[grep("HEM",rownames(dt)),]))
+### K MEANS with specific dist for pharmacophores###
+library(flexclust)
+flexclust::distEuclidean
+dist_Euc_test = function (x, centers) 
+{
+  if (ncol(x) != ncol(centers)) 
+    stop(sQuote("x"), " and ", sQuote("centers"), " must have the same number of columns")
+  z <- matrix(0, nrow = nrow(x), ncol = nrow(centers))
+  for (k in 1:nrow(centers)) {
+    z[, k] <- sqrt(colSums((t(x) - centers[k, ])^2))
+  }
+  z
+}
+
+dist_fuzcav = function (x, centers) {
+  z <- matrix(0, nrow(x), ncol = nrow(centers))
+  for (k in 1:nrow(centers)) {
+    d_x = apply(x, 1, function(fingerprint) {1-dist_fuzcav_ph(as.integer(fingerprint), as.integer(centers[k,]))})
+    #for (i in 1:nrow(x)) {
+    #  d_x = c(d_x, 1 - dist_fuzcav_ph(as.integer(x[i,]), as.integer(centers[k,])))
+    #}
+    z[,k] <- d_x
+  }
+  z
+}
+#
+
+start_time <- Sys.time()
+res = kcca(dt_pharmacophores[1:20,], 3, family=kccaFamily(dist=dist_fuzcav))
+end_time <- Sys.time()
+end_time - start_time
+res@cluster
+
+
+res_test = kcca(dt[1:3,], 2, family=kccaFamily(dist=distEuclidean))
+res_test@centers
+
+dist_fuzcav_ph(as.integer(dt_pharmacophores["1A00_HEM_A_2",]), as.integer(dt_pharmacophores["1A01_HEM_A_2",]))
+
+### H CLUSTwith specific dist for pharmacophores###
+
+hclust_ph_dist = matrix(0, nrow(dt_pharmacophores[1:20,]), ncol = nrow(dt_pharmacophores[1:20,]))
+rownames(hclust_ph_dist) = rownames(dt_pharmacophores[1:20,])
+colnames(hclust_ph_dist) = rownames(dt_pharmacophores[1:20,])
+
+for (i in 1:nrow(dt_pharmacophores[1:20,])) {
+  for (j in i:nrow(dt_pharmacophores[1:20,])) {
+    hclust_ph_dist[i,j] = 1 - dist_fuzcav_ph(as.integer(dt_pharmacophores[i,]), as.integer(dt_pharmacophores[j,]))
+  }
+}
+
+hclust_ph_dist = as.dist(t(hclust_ph_dist))
+
+ph.hclust = hclust(hclust_ph_dist, method = "ward.D2")
+plot(ph.hclust, labels = res@cluster)
 
 
 
