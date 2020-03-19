@@ -103,12 +103,45 @@ index = sample(1:nrow(dt),size = nrow(dt)*prct_data)
 dt = dt[index,]
 ###Valid pockets selection
 delete_clean_data = function(dt){
+  print("number pockets NA")
+  print(nrow(dt) - nrow(na.omit(dt)))  
   dt = na.omit(dt)
   minimum_size_pocket = 60
   maximum_size_pocket = 14
+
   inf_60 = which(dt[,"C_RESIDUES"] <= minimum_size_pocket)
+  print("number of pockets superior 60:")
+  print(nrow(dt)-length(inf_60))
   sup_14 = which(dt[,"C_RESIDUES"] >= maximum_size_pocket)
+  print("number of pockets inferior 14:")
+  print(nrow(dt)-length(sup_14))
+  
+  print("Number of pockets >=14 <=60")
+  print(length(intersect(inf_60,sup_14)))
   dt = dt[intersect(inf_60,sup_14),]
+  
+  print("delete DOD, NTN, EDO, SF4:")
+  sup_DOD = grep("_DOD_", rownames(dt))
+  print("Number DOD:")
+  print(length(sup_DOD))
+  sup_NTN = grep("_NTN_", rownames(dt))
+  print("Number NTN:")
+  print(length(sup_NTN))
+  sup_EDO = grep("_EDO_", rownames(dt))
+  print("Number EDO:")
+  print(length(sup_EDO))
+  sup_SF4 = grep("_SF4_", rownames(dt))
+  print("Number SF4:")
+  print(length(sup_SF4))
+  
+  dt = dt[-c(sup_DOD,sup_NTN,sup_EDO,sup_SF4),]
+  
+  print("number invalid pockets:")
+  load("../results/names_pockets_double")
+  print(length(names_pockets_double))
+  dt = dt[-which(is.element(rownames(dt), names_pockets_double)),]
+  print("nrow jeu final:")
+  print(nrow(dt))
   return(dt)
 } 
 nrow(dt)
@@ -994,9 +1027,9 @@ for (i in 1:alltree$averageBranchingFactor) {
 }
 length(grep("DOD", rownames(dt)))
 
-length(rownames(dt_72descriptors[grep("_DOD_", rownames(dt_72descriptors)),]))
-length(rownames(dt_72descriptors[grep("_IOD_", rownames(dt_72descriptors)),]))
-length(rownames(dt_72descriptors[grep("_IUM_", rownames(dt_12descriptors)),]))
+length(rownames(dt[grep("_DOD_", rownames(dt)),]))
+length(rownames(dt[grep("_IOD_", rownames(dt)),]))
+length(rownames(dt[grep("_IUM_", rownames(dt)),]))
 length(rownames(dt[grep("_D8U_", rownames(dt)),]))
 length(rownames(dt[grep("_SO4_", rownames(dt)),]))
 length(rownames(dt[grep("_FE2_", rownames(dt)),]))
@@ -1009,8 +1042,8 @@ length(rownames(dt[grep("_URE_", rownames(dt)),]))
 length(rownames(dt[grep("_FMT_", rownames(dt)),]))
 length(rownames(dt[grep("_TRS_", rownames(dt)),]))
 length(rownames(dt[grep("_NCO_", rownames(dt)),]))
-length(rownames(dt_72descriptors[grep("_HOH_", rownames(dt_72descriptors)),]))
-length(rownames(dt_72descriptors[grep("_H2O_", rownames(dt_72descriptors)),]))
+length(rownames(dt[grep("_HOH_", rownames(dt)),]))
+length(rownames(dt[grep("_H2O_", rownames(dt)),]))
 length(rownames(dt[grep("_WAT_", rownames(dt)),]))
 length(rownames(dt[grep("_NTN_", rownames(dt)),]))
 
@@ -1140,11 +1173,11 @@ pheatmap(table_cluster[1:100,1:100], cluster_rows = FALSE, cluster_cols = FALSE)
 pheatmap(table_cluster[100:200,100:200], cluster_rows = FALSE, cluster_cols = FALSE)
 
 #### ligand protein diversity ####
-rownames(dt)
-grep("_*_",rownames(dt))
+rownames(dt)[30065]
+grep("_CQL_",rownames(dt))
 
 names_ligand = sapply(strsplit(rownames(dt), "_"), "[", 2)
-length(which(names_ligand == "HEM"))
+length(which(names_ligand == "CLQ"))
 
 length(which(table(names_ligand) > 1))
 
@@ -1158,8 +1191,8 @@ plot(sort(table_names_ligand))
 
 hist(sort(table_names_ligand))
 
-table_names_ligand[which(table_names_ligand > 1000)]
-length(which(table_names_ligand > 1))
+table_names_ligand[which(table_names_ligand > 100)]
+length(which(table_names_ligand == 1))
 
 #camember plot:
 df <- data.frame(
@@ -1171,7 +1204,7 @@ df <- data.frame(
             )
 )
 df <- data.frame(
-  group = c("linked to 1 pocket:6403", "linked to ]1;10] pockets:10314", "linked to ]10;1000[:898", "linked to > 1000 pockets:11"),
+  group = c("linked to 1 pocket:11718 ligands", "linked to ]1;10] pockets:5208 ligands", "linked to ]10;1000]:690 ligands", "linked to > 1000 pockets:6 ligands"),
   value = c(sum(table_names_ligand[which(table_names_ligand == 1)]),
             sum(table_names_ligand[which(table_names_ligand <= 10 & table_names_ligand > 1)]),
             sum(table_names_ligand[which(table_names_ligand <= 1000 & table_names_ligand > 10)]),
@@ -1186,14 +1219,17 @@ df <- data.frame(
 library(ggplot2)
 # Bar plot
 bp<- ggplot(df, aes(x="", y=value, fill=group))+
-  geom_bar(width = 1, stat = "identity")
+  geom_bar(width = 1, stat = "identity")+
+  geom_text(aes(y = value/3 + c(0, cumsum(value)[-length(value)]), 
+                label = c(11718,6,690,5208)), size=5)
 
 bp + theme(legend.text = element_text(colour="black", size=12, 
                                    face="bold"))
 
+
 plot(sort(table_names_ligand), breaks = 4)
 
-barplot(df$value,df$size, names.arg = c("[1]","]1;10]","]10;1000]","]1000;["))
+barplot(df$value,df$size, names.arg = c("[1]","]1;10]","]10;1000]","]1000;["), xlab = "number of ligands linked to either 1;1-10;10-1000;>1000 pockets",ylab="number of pocketss representative of this group of ligands")
 
 names_prot = sapply(strsplit(rownames(dt), "_"), "[", 1)
 length(names_prot)
@@ -1222,13 +1258,68 @@ for (i in 1:length(names_ligand_unique)){
   index = grep(paste0(paste0("_",names_ligand_unique[i]),"_"),rownames(dt))
   if(length(index) > 1) {
     print(i)
-    dist_ligs[flag] = mean(dist(dt[index,]))
-    flag = flag+1
+    if(length(index) > 100) {
+      index = sample(index,100)
+    }
+    dist_pock = NULL
+    for (j in 1:(length(index)-1)) {
+      for (k in (j+1):length(index)) {
+        if(sapply(strsplit(rownames(dt)[index[j]], "_"), "[", 1) != sapply(strsplit(rownames(dt)[index[k]], "_"), "[", 1)) {
+          dist_pock = c(dist_pock, dist(dt[c(index[j],index[k]),]))
+          #print(dt[c(index[i],index[j]),])
+        }
+      }
+    }
+    if(!is.null(dist_pock)) {
+      dist_ligs[flag] = mean(dist_pock)
+      flag = flag+1      
+    }
   }
 }
-boxplot(dist_ligs)
+length(which(dist_ligs > 0))
+
+#test 2
+dist_ligs_test2 = rep(0,length(which(table(names_ligand) > 1)))#length(unique(names_ligand)))
+names(dist_ligs_test2) =  names(which(table(names_ligand) > 1))
+for (i in names(which(table(names_ligand) > 1))){
+  #print(i)
+  index = grep(paste0(paste0("_",i),"_"),rownames(dt))
+  print(i)
+  dist_ligs_test2[i] = mean(dist(dt[index,]))
+}
+dist_ligs_test2
+
+boxplot(dist_ligs_test2)
+
 summary(dist_ligs)
 length(dist_ligs)
+names(dist_ligs) = names(which(table(names_ligand) > 1))
+
+
+index = grep(paste0(paste0("_","2CW"),"_"),rownames(dt))
+dist(dt[index,])
+length(names(which(table(names_ligand) == 2)))
+length(which(dist_ligs_test2 == 0))
+#comparaison avec prot
+names_prot = sapply(strsplit(rownames(dt), "_"), "[", 1)
+#check number of pockets dist = 0 for same ligands in same prot like the pocket could be evaluated 2 times
+count_same_prot_same_lig_dist0 = NULL
+for (i in names(which(table(names_ligand) > 1))){
+  #print(i)
+  index = grep(paste0(paste0("_",i),"_"),rownames(dt))
+  names_prot = sapply(strsplit(rownames(dt[index,]), "_"), "[", 1)
+  #print(names_prot)
+  #print(setequal(names_prot[1],names_prot))
+  if(setequal(names_prot[1],names_prot) == TRUE) {
+    print(dt[index,])
+    #count_same_prot_same_lig_dist0 = c(count_same_prot_same_lig_dist0,i)
+  }
+}
+length(count_same_prot_same_lig_dist0)
+length(names(which(table(names_ligand) > 1)))
+setdiff(names(which(dist_ligs_test2 == 0)), count_same_prot_same_lig_dist0)
+index = grep(paste0(paste0("_","02N"),"_"),rownames(dt))
+dt[index,]
 # dist for different ligands
 
 dist_ligs_random = rep(0,1000)#length(unique(names_ligand)))
@@ -1246,15 +1337,25 @@ plot(d_random)
 plot(d_lig)
 
 
+#library(sm)
+sm.density.compare(c(dist_ligs_random,dist_ligs[which(dist_ligs>0)]),
+                   c(rep(1,length(dist_ligs_random)),rep(2,length(dist_ligs[which(dist_ligs>0)]))),
+                   model = "none", xlim=c(0,10)
+                   , xlab = "Mean distance bewteen pockets"
+                   , main = "Density plot of the distance between pockets from different ligands linking the same ligand")
 
-sm.density.compare(c(dist_ligs_random,dist_ligs), c(rep(1,length(dist_ligs_random)),rep(2,length(dist_ligs))), model = "none", xlim=c(0,10))
-
-abline(v=mean(dist_ligs), col = "blue")
+abline(v=mean(dist_ligs[which(dist_ligs>0)]), col = "green")
+abline(v=1.2, col = "green")
+abline(v=2.87, col = "blue")
 abline(v=mean(dist_ligs_random), col = "red")
-text(1,0.3,"mean = 2.60",col="blue")
-text(7,0.3,"mean = 4.41",col="red")
+text(2,0.3,"mean = 2.2",col="green")
+text(1,0.15,"pic = 1.2",col="green")
+#text(1,0.1,"mean = 1.98",col="blue")
+text(7,0.3,"mean = 4.5",col="red")
+text(3.5,0.15,"intersect = 2.9",col="blue")
 mean(dist_ligs_random)
-mean(dist_ligs)
+mean(dist_ligs[which(dist_ligs>0)])
+median(dist_ligs[which(dist_ligs>0)])
 
 lines(d_lig,col="green")
 
@@ -1378,6 +1479,39 @@ dist_fuzcav_ph(as.integer(dt_pharmacophores[1,]),as.integer(dt_pharmacophores[2,
 
 
 isOddCpp(42L)
+#### number pockets in double ####
+dist_ligs = rep(0,length(which(table(names_ligand) > 1)))#length(unique(names_ligand)))
+names_ligand_unique = unique(names_ligand)
+
+n_pockets_double = NULL
+names_pockets_double = NULL
+for (name_lig in names(which(table(names_ligand) > 10))){
+  print(name_lig)
+  index = grep(paste0(paste0("_",name_lig),"_"),rownames(dt))
+  d_t = dist(dt[index,])
+  n_pockets_double = c(n_pockets_double, length(which(d_t == 0)))
+  
+  d_m = as.matrix(d_t)
+  for(i in 2:nrow(d_m)) {
+    if(min(d_m[i,1:(i-1)]) == 0) {
+      #print(i)
+      #print(rownames(d_m)[i])
+      names_pockets_double = c(names_pockets_double,rownames(d_m)[i])
+    }
+  }
+  if(sum(n_pockets_double) != length(names_pockets_double))
+    print(name_lig)
+}
+boxplot(n_pockets_double)
+sum(n_pockets_double)
+length(names_pockets_double)
+
+save(names_pockets_double, file = "../results/names_pockets_double", version = 2)
+load("../results/names_pockets_double")
+
+attributes(d_t)$Labels
+#
+
 
 #### CLASSIC K MEANS ####
 dt = dt_12descriptors[,]#names_pharmacophores_descriptors,]#c(-8,-2)]
@@ -1386,10 +1520,21 @@ dt = delete_clean_data(dt)
 dt = scale(dt)
 #
 nstart = 1
-dt.kmean = kmeans(dt, 100, nstart = nstart, algorithm="MacQueen", iter.max = 200)
+mean_average_within_clusters_dist = NULL
+for (seeds in c(1:9,seq(10,100,by = 10),seq(200,1000,by = 100))) {
+  print(seeds)
+  dt.kmean = kmeans(dt, seeds, nstart = nstart, algorithm="MacQueen", iter.max = 200)
+  average_within_clusters_dist = sqrt(dt.kmean$withinss/dt.kmean$size)
+  mean_average_within_clusters_dist = c(mean_average_within_clusters_dist,
+                                        mean(average_within_clusters_dist))
+}
 
-average_within_clusters_dist = sqrt(dt.kmean$withinss/dt.kmean$size)
-mean(average_within_clusters_dist)
+plot(c(1:9,seq(10,100,by = 10),seq(200,1000,by = 100)), mean_average_within_clusters_dist,
+     xlab = "number of seeds",
+     ylab = "mean of the average distance of within cluster distance")
+
+
+
 hist(average_within_clusters_dist, main = "average_within_clusters_dist CLASSIC")
 plot(density(average_within_clusters_dist), main = "average_within_clusters_dist CLASSIC n_seeds = 10")
 abline(v=mean(average_within_clusters_dist), col = "blue")
@@ -1452,6 +1597,7 @@ res_test@centers
 dist_fuzcav_ph(as.integer(dt_pharmacophores["1A00_HEM_A_2",]), as.integer(dt_pharmacophores["1A01_HEM_A_2",]))
 
 ### H CLUSTwith specific dist for pharmacophores###
+#dt_pharmacophores = read.table("../data/FPCount_save_all_inter_dt12.txt", sep = ";", row.names = 1, nrows = 20)
 
 hclust_ph_dist = matrix(0, nrow(dt_pharmacophores[1:20,]), ncol = nrow(dt_pharmacophores[1:20,]))
 rownames(hclust_ph_dist) = rownames(dt_pharmacophores[1:20,])
@@ -1466,6 +1612,8 @@ for (i in 1:nrow(dt_pharmacophores[1:20,])) {
 hclust_ph_dist = as.dist(t(hclust_ph_dist))
 
 ph.hclust = hclust(hclust_ph_dist, method = "ward.D2")
+plot(ph.hclust)
+
 plot(ph.hclust, labels = res@cluster)
 
 
