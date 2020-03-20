@@ -452,11 +452,11 @@ pockets_classification_tree = function(dt,
   ##
   #TODO:select K optimal
   ##
-  nbr_k_optimal = 10
+  nbr_k_optimal = 800
   #seceond kmean
   print("here1")
   #dt.kmean = kmeans(dt, centers = nbr_k_optimal, nstart = nstart, iter.max = 200)
-  dt.kmean = kmeans(dt, 10, nstart = nstart, algorithm="MacQueen", iter.max = 200)
+  dt.kmean = kmeans(dt, 800, nstart = nstart, algorithm="MacQueen", iter.max = 200)
 
   print("here2")
   pockets_cluster = list()
@@ -554,11 +554,11 @@ list_path_tree = path_tree
 tmp_pockets_cluster_names = NULL
 tmp_list_path_tree = NULL
 cluster_infos = NULL
-nstart = 100
+nstart = 1
 n = 1
 iter=1
 iter_path = 1
-for (iter in 1:3) {
+for (iter in 1:1) {
   for(i in 1:length(pockets_cluster_names)) {
     if(!is.null(pockets_cluster_names[[i]])) {
       cluster_dt = pockets_classification_tree(
@@ -593,12 +593,12 @@ print(alltree, "size","withinss", "totss", "betweenss")
 print(alltree, "size","withinss", "centers.hydrophobic_kyte", "centers.p_Nlys_atom", "centers.p_Ntrp_atom")
 alltree$fieldsAll
 ##save tree
-save(alltree, file = "../results/dt_12dsc_tree_mcqueen_1000.Rdata", version = 2)
+save(alltree, file = "../results/dt_12clean_tree_mcqueen_seeds800.Rdata", version = 2)
 #save scale infos
-write.table(attr(dt, "scaled:center"), file = "../results/scaled:center_dt72.Rdata")
-write.table(attr(dt, "scaled:scale"), file = "../results/scaled:scale_dt72.Rdata")
+write.table(attr(dt, "scaled:center"), file = "../results/scaled:center_dt12clean.Rdata")
+write.table(attr(dt, "scaled:scale"), file = "../results/scaled:scale_dt12clean.Rdata")
 #save min max
-write.table(rbind(apply(dt,2,max),apply(dt,2,min)), file = "../results/minmax_value_dt72.Rdata")
+write.table(rbind(apply(dt,2,max),apply(dt,2,min)), file = "../results/minmax_value_dt12clean.Rdata")
 #
 load(file = "../results/dt_12dsc_tree_mcqueen_1000.Rdata")
 load(file = "../results/res_12desc/dt_12dsc_tree_size400_mcqueen.Rdata")
@@ -1192,7 +1192,7 @@ plot(sort(table_names_ligand))
 hist(sort(table_names_ligand))
 
 table_names_ligand[which(table_names_ligand > 100)]
-length(which(table_names_ligand == 1))
+length(which(table_names_ligand == 1000))
 
 #camember plot:
 df <- data.frame(
@@ -1264,8 +1264,9 @@ for (i in 1:length(names_ligand_unique)){
     dist_pock = NULL
     for (j in 1:(length(index)-1)) {
       for (k in (j+1):length(index)) {
-        if(sapply(strsplit(rownames(dt)[index[j]], "_"), "[", 1) != sapply(strsplit(rownames(dt)[index[k]], "_"), "[", 1)) {
+        if(sapply(strsplit(rownames(dt)[index[j]], "_"), "[", 1) == sapply(strsplit(rownames(dt)[index[k]], "_"), "[", 1)) { #CHANGE TO != FOR DIFFERENT POCKETS
           dist_pock = c(dist_pock, dist(dt[c(index[j],index[k]),]))
+          #print(dt[c(index[j],index[k]),2])
           #print(dt[c(index[i],index[j]),])
         }
       }
@@ -1345,14 +1346,14 @@ sm.density.compare(c(dist_ligs_random,dist_ligs[which(dist_ligs>0)]),
                    , main = "Density plot of the distance between pockets from different ligands linking the same ligand")
 
 abline(v=mean(dist_ligs[which(dist_ligs>0)]), col = "green")
-abline(v=1.2, col = "green")
-abline(v=2.87, col = "blue")
+abline(v=0.5, col = "green")
+#abline(v=2.87, col = "blue")
 abline(v=mean(dist_ligs_random), col = "red")
-text(2,0.3,"mean = 2.2",col="green")
-text(1,0.15,"pic = 1.2",col="green")
+text(2,0.3,"mean = 1.0",col="green")
+text(1,0.15,"pic = 0.5",col="green")
 #text(1,0.1,"mean = 1.98",col="blue")
-text(7,0.3,"mean = 4.5",col="red")
-text(3.5,0.15,"intersect = 2.9",col="blue")
+text(7,0.3,"mean = 4.7",col="red")
+#text(3.5,0.15,"intersect = 2.9",col="blue")
 mean(dist_ligs_random)
 mean(dist_ligs[which(dist_ligs>0)])
 median(dist_ligs[which(dist_ligs>0)])
@@ -1519,6 +1520,10 @@ dt = delete_clean_data(dt)
 #scale data
 dt = scale(dt)
 #
+dt.kmean = kmeans(dt, 100, nstart = 100, algorithm="MacQueen", iter.max = 200)
+save(dt.kmean, file = "../results/dt.kmean_dt12clean_nseeds100.Rdata", version = 2)
+load("../results/dt.kmean_dt12clean_nseeds100.Rdata")
+#
 nstart = 1
 mean_average_within_clusters_dist = NULL
 for (seeds in c(1:9,seq(10,100,by = 10),seq(200,1000,by = 100))) {
@@ -1612,9 +1617,10 @@ for (i in 1:nrow(dt_pharmacophores[1:20,])) {
 hclust_ph_dist = as.dist(t(hclust_ph_dist))
 
 ph.hclust = hclust(hclust_ph_dist, method = "ward.D2")
-plot(ph.hclust)
+plot(ph.hclust, hang = -1, cex = 0.6)
 
+png(filename="../results/kmeans_hclust_test_k3_20pocks.png")
 plot(ph.hclust, labels = res@cluster)
-
+dev.off()
 
 

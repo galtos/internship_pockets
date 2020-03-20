@@ -4,13 +4,15 @@ library(treemap)
 library(fmsb)
 radarchart(langues.means)
 ####LOADING TREE AND INFORMATIONS FOR THE SCALE ####
+load(file = "../results/dt_12clean_tree_mcqueen_seeds100.Rdata")
+load(file = "../results/dt_12clean_tree_mcqueen_seeds800.Rdata")
 #load(file = "../results/res_12desc/dt_12dsc_tree_withinss400_mcqueen.Rdata")
 #load(file = "../results/dt_72dsc_tree_withinss400_mcqueen.Rdata")
 #load(file = "../results/dt_72dsc_tree_withinss400_mcqueen_physicochemicals.Rdata")
-load(file = "../results/dt_72dsc_tree_withinss400_mcqueen_geometrical.Rdata")
+#load(file = "../results/dt_72dsc_tree_withinss400_mcqueen_geometrical.Rdata")
 #
-scaled_center_dt_t = read.table(file = "../results/scaled:center_dt12.Rdata", col.names = F, row.names = 1)
-scaled_scale_dt_t = read.table(file = "../results/scaled:scale_dt12.Rdata", col.names = F, row.names = 1)
+scaled_center_dt_t = read.table(file = "../results/scaled:center_dt12clean.Rdata", col.names = F, row.names = 1)
+scaled_scale_dt_t = read.table(file = "../results/scaled:scale_dt12clean.Rdata", col.names = F, row.names = 1)
 scaled_center_dt = scaled_center_dt_t[,1]
 names(scaled_center_dt) = rownames(scaled_center_dt_t)
 scaled_scale_dt = scaled_scale_dt_t[,1]
@@ -43,18 +45,18 @@ new_pocket = data.frame(centers.C_RESIDUES = dt_new_pocket_txt[1,"Nb.RES"],
                         centers.VOLUME_HULL = dt_new_pocket_txt[1,"Volume.hull"]
                         )
 ## DATA 12 ##
-new_pocket = data.frame(centers.p_polar_residues = dt_new_pocket_des["pocket_p_polar_residues",1],
-                        centers.p_Nlys_atom = dt_new_pocket_des["pocket_p_Nlys_atom",1],
-                        centers.p_aliphatic_residues = dt_new_pocket_des["pocket_p_aliphatic_residues",1],
-                        centers.VOLUME_HULL = dt_new_pocket_des["pocket_VOLUME_HULL",1],
+new_pocket = data.frame(centers.C_RESIDUES = dt_new_pocket_des["pocket_C_RESIDUES",1],
                         centers.DIAMETER_HULL = dt_new_pocket_des["pocket_DIAMETER_HULL",1],
-                        centers.p_Ooh_atom = dt_new_pocket_des["pocket_p_Ooh_atom",1],
                         centers.hydrophobic_kyte = dt_new_pocket_des["pocket_hydrophobic_kyte",1],
-                        centers.p_Ntrp_atom = dt_new_pocket_des["pocket_p_Ntrp_atom",1],
-                        centers.p_Otyr_atom = dt_new_pocket_des["pocket_p_Otyr_atom",1],
-                        centers.C_RESIDUES = dt_new_pocket_des["pocket_C_RESIDUES",1],
+                        centers.p_aliphatic_residues = dt_new_pocket_des["pocket_p_aliphatic_residues",1],
                         centers.p_aromatic_residues = dt_new_pocket_des["pocket_p_aromatic_residues",1],
-                        centers.p_hydrophobic_residues = dt_new_pocket_des["pocket_p_hydrophobic_residues",1]
+                        centers.p_hydrophobic_residues = dt_new_pocket_des["pocket_p_hydrophobic_residues",1],
+                        centers.p_Nlys_atom = dt_new_pocket_des["pocket_p_Nlys_atom",1],
+                        centers.p_Ntrp_atom = dt_new_pocket_des["pocket_p_Ntrp_atom",1],
+                        centers.p_Ooh_atom = dt_new_pocket_des["pocket_p_Ooh_atom",1],
+                        centers.p_Otyr_atom = dt_new_pocket_des["pocket_p_Otyr_atom",1],
+                        centers.p_polar_residues = dt_new_pocket_des["pocket_p_polar_residues",1],
+                        centers.VOLUME_HULL = dt_new_pocket_des["pocket_VOLUME_HULL",1]
                         )
 ## DATA 72 ##
 new_pocket = data.frame(centers.A = dt_new_pocket_des["pocket_A",1],
@@ -149,9 +151,9 @@ new_pocket = data.frame(centers.C_ATOM = dt_new_pocket_des["pocket_C_ATOM",1],
 )
 
 
-new_pocket_1 = scale(new_pocket_1, scaled_center_dt[sort(names(scaled_center_dt))], scaled_scale_dt[sort(names(scaled_scale_dt))])
-new_pocket_2 = scale(new_pocket_2, scaled_center_dt[sort(names(scaled_center_dt))], scaled_scale_dt[sort(names(scaled_scale_dt))])
-dist(rbind(new_pocket_1,new_pocket_2))
+#new_pocket_1 = scale(new_pocket_1, scaled_center_dt[sort(names(scaled_center_dt))], scaled_scale_dt[sort(names(scaled_scale_dt))])
+#new_pocket_2 = scale(new_pocket_2, scaled_center_dt[sort(names(scaled_center_dt))], scaled_scale_dt[sort(names(scaled_scale_dt))])
+#dist(rbind(new_pocket_1,new_pocket_2))
 
 new_pocket = scale(new_pocket, scaled_center_dt[sort(names(scaled_center_dt))], scaled_scale_dt[sort(names(scaled_scale_dt))])
 ##when scaled names need to be sorted (dt 72)
@@ -346,7 +348,7 @@ cluster_center_min_dist = alltree$Get(function(node) c(
                                       }
                                       })
 dt.visualize = NULL
-dt.visualize =  rbind(minmax_value, new_pocket)
+dt.visualize = rbind(minmax_value, new_pocket)
 dt.visualize = rbind(dt.visualize, t(cluster_center_min_dist))
 #
 #visualize firts 10 clusters
@@ -569,9 +571,40 @@ dt.kmean_centers_10_names = alltree$Get(function(node) node$levelName, filterFun
 dt_centers.hclust = hclust(dist(t(dt.kmean_centers_10)), method = "ward.D2")
 plot(dt_centers.hclust)
 
+####HCLUST on closest cluster ####
+library(dendextend)
 
+hclust_best = hclust(dist(rbind(dt[unlist(alltree$`193`$pockets_names),sort(colnames(dt))],
+                          new_pocket)),
+                     method = "ward.D2")
 
+which(hclust_best$labels == "")
+hclust_best$labels[which(hclust_best$labels == "")] = "new_pocket"
+tail(hclust_best$labels)
 
+hclust_best = as.dendrogram(hclust_best)
 
+labels_colors(hclust_best) = 1
+labels_colors(hclust_best)["new_pocket"] = 2
 
+hclust_best <- set(hclust_best, "labels_cex", 0.8)
+plot(hclust_best)
+
+#apply dist
+start_time <- Sys.time()
+res_d = apply(dt, 1, function(x) {dist(rbind(new_pocket,x))})
+head(sort(res_d))
+end_time <- Sys.time()
+
+end_time - start_time
+
+start_time <- Sys.time()
+res_d_37 = apply(dt[unlist(alltree$`193`$pockets_names),], 1, function(x) {dist(rbind(new_pocket,x))})
+head(sort(res_d),10)
+end_time <- Sys.time()
+
+end_time - start_time
+
+sapply(strsplit(names(head(sort(res_d),10)), "_"), "[", 2)
+head(sort(res_d),10)
 
