@@ -1617,10 +1617,10 @@ for (i in 1:nrow(dt_pharmacophores[1:20,])) {
 hclust_ph_dist = as.dist(t(hclust_ph_dist))
 
 ph.hclust = hclust(hclust_ph_dist, method = "ward.D2")
-plot(ph.hclust, hang = -1, cex = 0.6)
+#plot(ph.hclust, hang = -1, cex = 0.6)
 
 png(filename="../results/kmeans_hclust_test_k3_20pocks.png")
-plot(ph.hclust, labels = res@cluster)
+plot(ph.hclust, labels = res@cluster, hang = -1, cex = 0.6)
 dev.off()
 
 
