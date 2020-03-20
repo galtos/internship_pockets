@@ -13,7 +13,7 @@ double dist_fuzcav_ph(NumericVector a , NumericVector b){
 	double countA = 0;
 	double countB = 0;
 	for (int i = 0 ; i< 4834; i++){
-    if (a[i]==b[i] && a[i] != 0) res++;
+    if (b[i] !=0 && a[i] != 0) res++;
 		if (a[i]!=0) countA++;
 		if (b[i]!=0) countB++;
 		
