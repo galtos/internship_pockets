@@ -15,32 +15,36 @@ dt_drug = read.table("../data/data_drug.txt", header = T, sep = ";", row.names =
 processFile = function(filepath, dt, fileConn) {
   con = file(filepath, "r")
   dt_pharmacophores = NULL
+  rnames_dt = toupper(rownames(dt))
   i=0
   while ( TRUE ) {
     line = readLines(con, n = 1)
-    if ( length(line) == 0 ) {
+    if (length(line) == 0) {
+      close(con)
       break
     }
     line_split = unlist(strsplit(line, split=";"))
     name_pharmacophore = paste(gsub("PDB=| ","",line_split[2]), gsub(".*/prox5_5/|_prox5_5_res_res-renum.pdb", "", line_split[1]), sep = "_")
+    name_pharmacophore = toupper(name_pharmacophore)
     #print(name_pharmacophore)
-    line_split[1] = toupper(name_pharmacophore)
+    line_split[1] = name_pharmacophore
     line_split = line_split[-2]
     #print(paste(line_split, collapse =";"))
-    if(is.element(toupper(name_pharmacophore),row.names(dt))) {
+    if(is.element(name_pharmacophore, rnames_dt)) {
       #dt_pharmacophores = rbind(dt_pharmacophores, line_split[-2])
+      print("------------YES------------")
+      i=i+1
       print(i)
-      cat(paste(line_split, collapse =";"), file = "../data/FPCount_save_all_inter_dt12.txt",append=TRUE)
-      cat("\n",file = "../data/FPCount_save_all_inter_dt12.txt",append=TRUE)
+      cat(paste(line_split, collapse =";"), file = "../data/FPCount_save_all_inter_dt12_bis.txt",append=TRUE)
+      cat("\n",file = "../data/FPCount_save_all_inter_dt12_bis.txt",append=TRUE)
 
     }
-    i=i+1
   }
   close(con)
 }
 processFile("../data/FPCount_save_all.txt", dt, fileConn)
 
-dt_pharmacophores = read.table("../data/FPCount_save_all_inter_dt12.txt", sep = ";", row.names = 1)
+dt_pharmacophores = read.table("../data/FPCount_save_all_inter_dt12_bis.txt", sep = ";", row.names = 1, nrows = 20)
 
 
 rownames(dt_pharmacophores) = toupper(dt_pharmacophores[,1])
@@ -56,8 +60,10 @@ rownames(dt_pharmacophores) = toupper(row_names_pharmacophores)
 dt_pharmacophores[,1] = NULL
 
 #descripors 72
+r_names_dt_72 = toupper(gsub("_prox5_5.desR","",rownames(dt_72descriptors)))
 rownames(dt_72descriptors) = toupper(gsub("_prox5_5.desR","",rownames(dt_72descriptors)))
 
+dt_72descriptors = intersect(r_names_dt_72, rownames(dt))
 rownames(dt_72descriptors) 
 nrow(dt_72descriptors)
 #drug like
@@ -181,7 +187,7 @@ row.names(dt) =  dt$Row.names
 dt$Row.names = NULL
 ####ACP####
 #dt.acp = PCA(dt, scale.unit = T,quali.sup=13) #normalisÃ© automatiquement
-dt.acp = PCA(dt, scale.unit = F)
+dt.acp = PCA(dt_72, scale.unit = T)
 dt.acp$eig
 dt.acp$ind$contrib
 dt.acp$var$contrib
@@ -456,7 +462,7 @@ pockets_classification_tree = function(dt,
   #seceond kmean
   print("here1")
   #dt.kmean = kmeans(dt, centers = nbr_k_optimal, nstart = nstart, iter.max = 200)
-  dt.kmean = kmeans(dt, 800, nstart = nstart, algorithm="MacQueen", iter.max = 200)
+  dt.kmean = kmeans(dt, nbr_k_optimal, nstart = nstart, algorithm="MacQueen", iter.max = 200)
 
   print("here2")
   pockets_cluster = list()
@@ -532,6 +538,13 @@ names_physicochemical = c('p_aliphatic_residues','p_Otyr_atom','p_NE2_atom','p_N
                       'p_Ooh_atom','p_ND1_atom')
 names_geometrical = c('C_ATOM','RADIUS_CYLINDER','CONVEX.SHAPE_COEFFICIENT','RADIUS_HULL','C_RESIDUES','SURFACE_HULL')
 ####~ workflow works ~####
+#Management dt_72
+r_names_dt_72 = toupper(gsub("_prox5_5.desR","",rownames(dt_72descriptors)))
+#which(is.element(r_names_dt_72, toupper(rownames(dt))))
+dt_72 = dt_72descriptors[which(is.element(r_names_dt_72, toupper(rownames(dt)))),]
+rownames(dt_72) = toupper(gsub("_prox5_5.desR","",rownames(dt_72)))
+#length(intersect(rownames(dt_72), toupper(rownames(dt))))
+
 #dt = dt_72descriptors[,]
 dt = dt_12descriptors[intersect(rownames(dt_pharmacophores), rownames(dt_12descriptors)),]
 dt = dt_12descriptors[,]#names_pharmacophores_descriptors,]#c(-8,-2)]
@@ -554,11 +567,11 @@ list_path_tree = path_tree
 tmp_pockets_cluster_names = NULL
 tmp_list_path_tree = NULL
 cluster_infos = NULL
-nstart = 1
+nstart = 100
 n = 1
 iter=1
 iter_path = 1
-for (iter in 1:1) {
+for (iter in 1:3) {
   for(i in 1:length(pockets_cluster_names)) {
     if(!is.null(pockets_cluster_names[[i]])) {
       cluster_dt = pockets_classification_tree(
@@ -571,7 +584,7 @@ for (iter in 1:1) {
       print(list_path_tree[iter_path])
       
       for (j in 1:nrow(cluster_dt)) {
-        if(cluster_dt[j,"withinss"] > 400 && cluster_dt[j,"size"] > 20) {
+        if(cluster_dt[j,"size"] > 20) {
           tmp_pockets_cluster_names[[n]] = unlist(cluster_dt[j,"pockets_names"])
           tmp_list_path_tree = c(tmp_list_path_tree, paste(list_path_tree[iter_path], j, sep ="/"))
         } #TODO:add hierachical clustering
@@ -593,7 +606,7 @@ print(alltree, "size","withinss", "totss", "betweenss")
 print(alltree, "size","withinss", "centers.hydrophobic_kyte", "centers.p_Nlys_atom", "centers.p_Ntrp_atom")
 alltree$fieldsAll
 ##save tree
-save(alltree, file = "../results/dt_12clean_tree_mcqueen_seeds800.Rdata", version = 2)
+save(alltree, file = "../results/K_Means_comparaison/dt_12clean_tree_classic_seeds800.Rdata", version = 2)
 #save scale infos
 write.table(attr(dt, "scaled:center"), file = "../results/scaled:center_dt12clean.Rdata")
 write.table(attr(dt, "scaled:scale"), file = "../results/scaled:scale_dt12clean.Rdata")
@@ -1020,6 +1033,64 @@ bet = tots - sum(w_tree)
 bet/tots ######### here total R2
 
 R2 = alltree$Get("R2", filterFun = function(node) node$level == 4)
+# plot
+w_tree = alltree$Get("withinss", filterFun = isLeaf)
+s_tree = alltree$Get("size", filterFun = isLeaf)
+
+png(paste0(paste0("../results/K_Means_comparaison/distance_size_LP_nseeds_", seeds),
+           "_nested.png"))
+
+par(mar=c(5, 4, 4, 8), xpd=TRUE)
+plot(s_tree, sqrt(w_tree/s_tree), xlim = c(0,300), ylim = c(0,3.5),
+     main = paste("distance moyenne NESTED n_seeds = ", seeds))
+
+grp_sup_2 = which(sqrt(w_tree/s_tree) >=2)
+
+points(mean(s_tree), mean(sqrt(w_tree/s_tree)), col = "red")
+points(s_tree[-grp_sup_2], 
+       sqrt(w_tree/s_tree)[-grp_sup_2], col = "green")
+
+nbr_unique_lig = NULL
+nbr_unique_prot = NULL
+for (n_grp in 1:seeds) {
+  print(n_grp)
+  names_grp = unlist(alltree$Get("pockets_names", filterFun = isLeaf)[n_grp])
+  nbr_unique_lig = c(nbr_unique_lig,
+                     length(unique(sapply(strsplit(names_grp, "_"), "[", 2))))
+  nbr_unique_prot = c(nbr_unique_prot,
+                      length(unique(sapply(strsplit(names_grp, "_"), "[", 1))))
+}
+text(s_tree, sqrt(w_tree/s_tree), 
+     labels=paste(paste0("L:",nbr_unique_lig),
+                  paste0("P:",nbr_unique_prot), sep = "|"),
+     cex= 0.6, pos=3, col = "blue")
+
+#text(dt.kmean$size[grp_sup_2], sqrt(dt.kmean$withinss/dt.kmean$size)[grp_sup_2], 
+#     labels=paste(dt.kmean$size[grp_sup_2],
+#                  round(sqrt(dt.kmean$withinss/dt.kmean$size)[grp_sup_2], 2), sep = ","),
+#     cex= 0.6, pos=3, col = "blue")
+legend("topright", inset=c(-0.4,-0.15), xpd=TRUE, mar(c(7,7,7,7)), cex = 1, bty = "n",
+       legend=c(paste0("mean_dist:",round(mean(sqrt(w_tree/s_tree)),2)),
+                paste0("mean_size:",round(mean(mean(s_tree)),2)),
+                paste0("n_dist>=2:",length(which(sqrt(w_tree/s_tree) >=2))),
+                paste0("n_pock>=2:",sum(s_tree[which(sqrt(w_tree/s_tree) >=2)])),
+                paste0("grp_size=1:",length(which(s_tree == 1))),
+                paste0("grp_sizeL=1:",length(which(nbr_unique_lig == 1))),
+                paste0("grp_sizeP=1:",length(which(nbr_unique_prot == 1))) ))
+dev.off()
+
+png(paste0(paste0("../results/K_Means_comparaison/size_L_nseeds_", seeds),
+           "_nested.png"))
+plot(nbr_unique_lig, s_tree, xlim = c(0,300), ylim = c(0,300) , 
+     xlab = "Nombre ligands dans groupe", ylab = "Taille du groupe",
+     main = paste("taille clusters et nbr ligands associés NESTED n_seeds = ", seeds))
+dev.off()
+png(paste0(paste0("../results/K_Means_comparaison/size_P_nseeds_", seeds),
+           "_nested.png"))
+plot(nbr_unique_prot, s_tree, xlim = c(0,300), ylim = c(0,300) , 
+     xlab = "Nombre proteines dans groupe", ylab = "Taille du groupe",
+     main = paste("taille clusters et nbr proteines associés NESTED n_seeds = ", seeds))
+dev.off()
 
 ### check bad ligands ###
 for (i in 1:alltree$averageBranchingFactor) {
@@ -1176,6 +1247,7 @@ pheatmap(table_cluster[100:200,100:200], cluster_rows = FALSE, cluster_cols = FA
 rownames(dt)[30065]
 grep("_CQL_",rownames(dt))
 
+names_prot = sapply(strsplit(rownames(dt), "_"), "[", 1)
 names_ligand = sapply(strsplit(rownames(dt), "_"), "[", 2)
 length(which(names_ligand == "CLQ"))
 
@@ -1185,13 +1257,13 @@ length(unique(names_ligand))
 #names_ligand = unique(names_ligand)
 
 table_names_ligand = table(names_ligand)
-which(table_names_ligand == max(table_names_ligand))
+which(table_names_ligand >= 100)
 
 plot(sort(table_names_ligand))
 
 hist(sort(table_names_ligand))
 
-table_names_ligand[which(table_names_ligand > 100)]
+table_names_ligand[which(table_names_ligand > 500)]
 length(which(table_names_ligand == 1000))
 
 #camember plot:
@@ -1265,20 +1337,25 @@ for (i in 1:length(names_ligand_unique)){
     for (j in 1:(length(index)-1)) {
       for (k in (j+1):length(index)) {
         if(sapply(strsplit(rownames(dt)[index[j]], "_"), "[", 1) == sapply(strsplit(rownames(dt)[index[k]], "_"), "[", 1)) { #CHANGE TO != FOR DIFFERENT POCKETS
-          dist_pock = c(dist_pock, dist(dt[c(index[j],index[k]),]))
+          #dist_pock = c(dist_pock, dist(dt[c(index[j],index[k]),]))
+          if(dist(dt[c(index[j],index[k]),]) > 3) {
+            print(paste(index[j],index[k]))
+          }
           #print(dt[c(index[j],index[k]),2])
           #print(dt[c(index[i],index[j]),])
         }
       }
     }
     if(!is.null(dist_pock)) {
-      dist_ligs[flag] = mean(dist_pock)
+      #dist_ligs[flag] = mean(dist_pock)
       flag = flag+1      
     }
   }
 }
 length(which(dist_ligs > 0))
-
+#check lgands with dist > 3
+which(table_names_ligand > 1)[which(dist_ligs > 3)]
+#dist_ligs_same_prot = dist_ligs
 #test 2
 dist_ligs_test2 = rep(0,length(which(table(names_ligand) > 1)))#length(unique(names_ligand)))
 names(dist_ligs_test2) =  names(which(table(names_ligand) > 1))
@@ -1322,12 +1399,12 @@ setdiff(names(which(dist_ligs_test2 == 0)), count_same_prot_same_lig_dist0)
 index = grep(paste0(paste0("_","02N"),"_"),rownames(dt))
 dt[index,]
 # dist for different ligands
+unique_names_ligand = unique(names_ligand)
+dist_ligs_random = rep(0,5000)#length(unique(names_ligand)))
 
-dist_ligs_random = rep(0,1000)#length(unique(names_ligand)))
-
-for (i in 1:1000){#length(unique(names_ligand))){
+for (i in 1:5000){#length(unique(names_ligand))){
   print(i)
-  lig = sample(unique(names_ligand), 2)
+  lig = sample(unique_names_ligand, 2)
   dist_ligs_random[i] = dist(rbind(dt[sample(grep(paste0(paste0("_",lig[1]),"_"),rownames(dt)),1),],
                                    dt[sample(grep(paste0(paste0("_",lig[2]),"_"),rownames(dt)),1),]))
 }
@@ -1339,27 +1416,43 @@ plot(d_lig)
 
 
 #library(sm)
-sm.density.compare(c(dist_ligs_random,dist_ligs[which(dist_ligs>0)]),
-                   c(rep(1,length(dist_ligs_random)),rep(2,length(dist_ligs[which(dist_ligs>0)]))),
+
+sm.density.compare(c(dist_ligs_random,
+                     dist_ligs[which(dist_ligs>0)],
+                     dist_ligs_protdiff[which(dist_ligs_protdiff>0)]),
+                   c(rep(1,length(dist_ligs_random)),
+                     rep(2,length(dist_ligs[which(dist_ligs>0)])),
+                     rep(3,length(dist_ligs_protdiff[which(dist_ligs_protdiff>0)]))
+                     ),
                    model = "none", xlim=c(0,10)
                    , xlab = "Mean distance bewteen pockets"
                    , main = "Density plot of the distance between pockets from different ligands linking the same ligand")
 
 abline(v=mean(dist_ligs[which(dist_ligs>0)]), col = "green")
-abline(v=0.5, col = "green")
-#abline(v=2.87, col = "blue")
+abline(v=mean(dist_ligs_protdiff[which(dist_ligs_protdiff>0)]), col = "blue")
 abline(v=mean(dist_ligs_random), col = "red")
-text(2,0.3,"mean = 1.0",col="green")
-text(1,0.15,"pic = 0.5",col="green")
-#text(1,0.1,"mean = 1.98",col="blue")
-text(7,0.3,"mean = 4.7",col="red")
+#abline(v=0.5, col = "green")
+#abline(v=2.87, col = "blue")
+
+text(1,0.73,"mean = 1.0",col="green")
+#text(1,0.15,"pic = 0.5",col="green")
+text(3.5,0.73,"mean = 2.2",col="blue")
+text(6,0.73,"mean = 4.6",col="red")
 #text(3.5,0.15,"intersect = 2.9",col="blue")
 mean(dist_ligs_random)
 mean(dist_ligs[which(dist_ligs>0)])
-median(dist_ligs[which(dist_ligs>0)])
+mean(dist_ligs_protdiff[which(dist_ligs_protdiff>0)])
 
 lines(d_lig,col="green")
-
+#SAVE DIST TO GAIN TIME #
+save(dist_ligs, file = "../results/dist_pockets/dist_ligs_protsame.Rdata")
+save(dist_ligs_protdiff, file = "../results/dist_pockets/dist_ligs_protdiff.Rdata")
+save(dist_ligs_random, file = "../results/dist_pockets/dist_ligs_random.Rdata")
+#LOAD
+load("../results/dist_pockets/dist_ligs_protsame.Rdata")
+load("../results/dist_pockets/dist_ligs_protdiff.Rdata")
+load("../results/dist_pockets/dist_ligs_random.Rdata")
+#
 library(sm)
 sm.density.compare(d_random, d_lig)
 
@@ -1370,28 +1463,43 @@ min(mat_hem)
 length(mat_hem)
 
 test_vww = dist(dt[grep("VWW",rownames(dt)),])
-##fuzcav dist for pharmacophores ##
+####fuzcav dist for pharmacophores ####
 dt = as.data.frame(dt_pharmacophores)
 
-names_ligand_unique = unique(names_ligand)
+# dist for same ligands
+dist_ligs = rep(0,length(which(table(names_ligand) > 1)))#length(unique(names_ligand)))
+rnames_dt = rownames(dt)
 
-dist_ligs = rep(0,100)#length(unique(names_ligand)))
-flag = 0
-for (i in 1:100){#length(unique(names_ligand))){
-  print(i)
-  print("voila")
-  index = grep(paste0("_",paste0(names_ligand_unique[i],"_")),rownames(dt))
+names_ligand_unique = unique(names_ligand)
+flag = 1
+for (i in 1:length(names_ligand_unique)){
+  #print(i)
+  index = grep(paste0(paste0("_",names_ligand_unique[i]),"_"),rownames(dt))
   if(length(index) > 1) {
-    index = sample(index,2)
-    flag = flag+1
-    dist_ligs[flag] = dist_fuzcav_ph(as.integer(dt[index[1],]),
-                                  as.integer(dt[index[2],]))
+    print(i)
+    if(length(index) > 100) {
+      index = sample(index,100)
+    }
+    dist_pock = NULL
+    for (j in 1:(length(index)-1)) {
+      for (k in (j+1):length(index)) {
+        if(sapply(strsplit(rnames_dt[index[j]], "_"), "[", 1) != sapply(strsplit(rnames_dt[index[k]], "_"), "[", 1)) { #CHANGE TO != FOR DIFFERENT POCKETS
+          print(index[j])
+          print(index[k])
+          print(dist_fuzcav_ph(as.integer(dt[index[j],]),as.integer(dt[index[k],])))
+          dist_pock = c(dist_pock, 
+                        dist_fuzcav_ph(as.integer(dt[index[j],]),as.integer(dt[index[k],])))
+          
+        }
+      }
+    }
+    if(!is.null(dist_pock)) {
+      #dist_ligs[flag] = mean(dist_pock)
+      flag = flag+1      
+    }
   }
 }
-hist(dist_ligs)
-d_lig = density(dist_ligs[1:flag])
-
-plot(d_lig)
+length(which(dist_ligs > 0))
 # dist for different ligands
 
 dist_ligs_random = rep(0,100)#length(unique(names_ligand)))
@@ -1512,7 +1620,117 @@ load("../results/names_pockets_double")
 
 attributes(d_t)$Labels
 #
+#### ENZYM FAMILY in DT ####
+#
+names_prot = sapply(strsplit(rownames(dt), "_"), "[", 1)
+#
+pdb_names_hydrolases = scan("../data/enzymes_pdb_names/hydrolases.txt", character(), quote = "")
+pdb_names_hydrolases = sub(",","",pdb_names_hydrolases)
+length(intersect(pdb_names_hydrolases, names_prot))
+n_poches_hydrolases = sum(table(names_prot)[intersect(pdb_names_hydrolases, names_prot)])
+#
+pdb_names_transferases = scan("../data/enzymes_pdb_names/tansferases.txt", character(), quote = "")
+pdb_names_transferases = sub(",","",pdb_names_transferases)
+length(intersect(pdb_names_transferases, names_prot))
+n_poches_transferases = sum(table(names_prot)[intersect(pdb_names_transferases, names_prot)])
+#
+pdb_names_oxidoreductases = scan("../data/enzymes_pdb_names/oxidoreductases.txt", character(), quote = "")
+pdb_names_oxidoreductases = sub(",","",pdb_names_oxidoreductases)
+length(intersect(pdb_names_oxidoreductases, names_prot))
+n_poches_oxidoreductases = sum(table(names_prot)[intersect(pdb_names_oxidoreductases, names_prot)])
+#
+pdb_names_lyases = scan("../data/enzymes_pdb_names/lyases.txt", character(), quote = "")
+pdb_names_lyases = sub(",","",pdb_names_lyases)
+length(intersect(pdb_names_lyases, names_prot))
+n_poches_lyases = sum(table(names_prot)[intersect(pdb_names_lyases, names_prot)])
+#
+pdb_names_isomerase = scan("../data/enzymes_pdb_names/isomerases.txt", character(), quote = "")
+pdb_names_isomerase = sub(",","",pdb_names_isomerase)
+length(intersect(pdb_names_isomerase, names_prot))
+n_poches_isomerase = sum(table(names_prot)[intersect(pdb_names_isomerase, names_prot)])
+#
+pdb_names_ligases = scan("../data/enzymes_pdb_names/ligases.txt", character(), quote = "")
+pdb_names_ligases = sub(",","",pdb_names_ligases)
+length(intersect(pdb_names_ligases, names_prot))
+n_poches_ligases = sum(table(names_prot)[intersect(pdb_names_ligases, names_prot)])
+#
+pdb_names_translocases = scan("../data/enzymes_pdb_names/translocases.txt", character(), quote = "")
+pdb_names_translocases = sub(",","",pdb_names_translocases)
+length(intersect(pdb_names_translocases, names_prot))
+n_poches_translocases = sum(table(names_prot)[intersect(pdb_names_translocases, names_prot)])
+#
+nrow(dt) - sum(n_poches_hydrolases,
+    n_poches_transferases,
+    n_poches_oxidoreductases,
+    n_poches_lyases,
+    n_poches_isomerase,
+    n_poches_ligases,
+    n_poches_translocases)
+### drug bank ligands in dt ###
+names_ligand = sapply(strsplit(rownames(dt), "_"), "[", 2)
+unique_names_ligand = unique(names_ligand)
+pdb_names_drugbank = read.csv("../data/drugbank/drugbank_all_target_polypeptide_ids.csv/all.csv")
+colnames(pdb_names_drugbank)
+class(pdb_names_drugbank$PDB.ID)
 
+pdb_names_drugbank_PDB_ID = as.list(as.character(pdb_names_drugbank$PDB.ID))
+pdb_names_drugbank_PDB_ID = strsplit(pdb_names_drugbank$PDB.ID[4], ";")
+pdb_names_drugbank_PDB_ID[1]
+unlist(pdb_names_drugbank$PDB.ID[2])
+summary(pdb_names_drugbank)
+
+n_drugbank_prot = NULL
+nbr_drugbank_prot = 0
+name_drugbank = NULL
+for (i in 1:length(pdb_names_drugbank_PDB_ID)) {
+  #print(any(intersect(toupper(names_prot), strsplit(pdb_names_drugbank_PDB_ID[[i]],"; "))))
+  name_drugbank = c(name_drugbank,strsplit(pdb_names_drugbank_PDB_ID[[i]],"; ")[[1]])
+  if(any(is.element(names_prot, strsplit(pdb_names_drugbank_PDB_ID[[i]],"; "))) ) {
+    n_drugbank_prot = c(n_drugbank_prot,intersect(names_prot, strsplit(pdb_names_drugbank_PDB_ID[[i]],"; ")[[1]]))
+    nbr_drugbank_prot = nbr_drugbank_prot + length(strsplit(pdb_names_drugbank_PDB_ID[[i]],"; ")[[1]])
+  }
+}
+
+length(n_drugbank_prot)
+nbr_drugbank_prot
+length(unique(name_drugbank))
+
+which(is.element(names_prot, name_drugbank) == TRUE)
+names_lig_drgbk = names_ligand[which(is.element(names_prot, name_drugbank) == TRUE)]
+
+length(unique(names_lig_drgbk))
+which(table(names_lig_drgbk) > 20)
+
+length(names_prot)
+length(unique(names_ligand))
+setdiff(unique(names_ligand), unique(names_lig_drgbk))
+## on all the data
+# Load the package required to read XML files.
+library("XML")
+# Also load the other required package.
+library("methods")
+
+# Give the input file name to the function.
+full_drugbank <- xmlParse(file = "../data/drugbank/drugbank_all_full_database.xml/full database.xml")
+test_db <- xmlParse(file = "../data/drugbank/drugbank.xsd") 
+# Print the result.
+print(test_db)
+#
+xmlRoot(test_db)
+
+#n_drugbank = rep(0, length(pdb_names_drugbank$Ligand.ID))
+n_drugbank = NULL
+n_drugbank_pockets = 0
+for(i in 1:length(pdb_names_drugbank$Ligand.ID)) {
+  if(any(is.element(unique_names_ligand,  pdb_names_drugbank$Ligand.ID[i]))) {
+    #n_drugbank[i] = 1
+    n_drugbank = c(n_drugbank, intersect(unique_names_ligand,  pdb_names_drugbank$Ligand.ID[i]))
+    n_drugbank_pockets = n_drugbank_pockets + length(which(names_ligand == intersect(unique_names_ligand,  pdb_names_drugbank$Ligand.ID[i])))
+  }
+}
+#pdb_names_drugbank$Ligand.ID[1]
+#sum(n_drugbank)
+length(n_drugbank)
 
 #### CLASSIC K MEANS ####
 dt = dt_12descriptors[,]#names_pharmacophores_descriptors,]#c(-8,-2)]
@@ -1520,25 +1738,80 @@ dt = delete_clean_data(dt)
 #scale data
 dt = scale(dt)
 #
-dt.kmean = kmeans(dt, 100, nstart = 100, algorithm="MacQueen", iter.max = 200)
+dt.kmean = kmeans(dt, 10, nstart = 1, algorithm="MacQueen", iter.max = 200)
 save(dt.kmean, file = "../results/dt.kmean_dt12clean_nseeds100.Rdata", version = 2)
 load("../results/dt.kmean_dt12clean_nseeds100.Rdata")
+#plot dist / taille
+plot(density(sqrt(dt.kmean$withinss/dt.kmean$size)), main = paste("distance moyenne  n_seeds = ", seeds))
+plot(dt.kmean$size, sqrt(dt.kmean$withinss/dt.kmean$size),
+     main = paste("distance moyenne  n_seeds = ", seeds))
+
 #
-nstart = 1
+nstart = 100
 mean_average_within_clusters_dist = NULL
-for (seeds in c(1:9,seq(10,100,by = 10),seq(200,1000,by = 100))) {
+for (seeds in 30:40) {
   print(seeds)
-  dt.kmean = kmeans(dt, seeds, nstart = nstart, algorithm="MacQueen", iter.max = 200)
+  dt.kmean = kmeans(dt, seeds, nstart = nstart, algorithm="MacQueen", iter.max = 300)
   average_within_clusters_dist = sqrt(dt.kmean$withinss/dt.kmean$size)
   mean_average_within_clusters_dist = c(mean_average_within_clusters_dist,
                                         mean(average_within_clusters_dist))
+  
 }
-
-plot(c(1:9,seq(10,100,by = 10),seq(200,1000,by = 100)), mean_average_within_clusters_dist,
-     xlab = "number of seeds",
-     ylab = "mean of the average distance of within cluster distance")
-
-
+png("../results/K_Means_comparaison/distance_moyenne_cluster_30-40.png")
+plot(30:40, mean_average_within_clusters_dist,
+     xlab = "nombre de graines",
+     ylab = "moyenne de distance moyenne entre les poches protéiques et le centroide de leur groupe")
+dev.off()
+#
+nstart = 1
+for (seeds in c(800, 1000)) { #800,1000
+  print(seeds)
+  load(paste0("../results/K_Means_comparaison/dt.kmean/dt.kmean_nseeds_", seeds))
+  #dt.kmean = kmeans(dt, seeds, nstart = nstart, algorithm="MacQueen", iter.max = 300)
+  #save(dt.kmean, file = paste0("../results/K_Means_comparaison/dt.kmean/dt.kmean_nseeds_", seeds))
+  png(paste0(paste0("../results/K_Means_comparaison/distance_size_LP_nseeds_", seeds),
+             ".png"))
+  
+  par(mar=c(5, 4, 4, 8), xpd=TRUE)
+  plot(dt.kmean$size, sqrt(dt.kmean$withinss/dt.kmean$size), xlim = c(0,300), ylim = c(0,3.5),
+       main = paste("distance moyenne  n_seeds = ", seeds))
+  
+  grp_sup_2 = which(sqrt(dt.kmean$withinss/dt.kmean$size) >=2)
+  
+  points(mean(dt.kmean$size), mean(sqrt(dt.kmean$withinss/dt.kmean$size)), col = "red")
+  points(dt.kmean$size[-grp_sup_2], 
+         sqrt(dt.kmean$withinss/dt.kmean$size)[-grp_sup_2], col = "green")
+  
+  nbr_unique_lig = NULL
+  nbr_unique_prot = NULL
+  for (n_grp in 1:seeds) {
+    names_grp = names(which(dt.kmean$cluster == n_grp))
+    nbr_unique_lig = c(nbr_unique_lig,
+                       length(unique(sapply(strsplit(names_grp, "_"), "[", 2))))
+    nbr_unique_prot = c(nbr_unique_prot,
+                        length(unique(sapply(strsplit(names_grp, "_"), "[", 1))))
+  }
+  text(dt.kmean$size, sqrt(dt.kmean$withinss/dt.kmean$size), 
+       labels=paste(paste0("L:",nbr_unique_lig),
+                    paste0("P:",nbr_unique_prot), sep = "|"),
+       cex= 0.6, pos=3, col = "blue")
+  
+  #text(dt.kmean$size[grp_sup_2], sqrt(dt.kmean$withinss/dt.kmean$size)[grp_sup_2], 
+  #     labels=paste(dt.kmean$size[grp_sup_2],
+  #                  round(sqrt(dt.kmean$withinss/dt.kmean$size)[grp_sup_2], 2), sep = ","),
+  #     cex= 0.6, pos=3, col = "blue")
+  legend("topright", inset=c(-0.4,-0.15), xpd=TRUE, mar(c(7,7,7,7)), cex = 1, bty = "n",
+         legend=c(paste0("mean_dist:",round(mean(sqrt(dt.kmean$withinss/dt.kmean$size)),2)),
+                  paste0("mean_size:",round(mean(mean(dt.kmean$size)),2)),
+                  paste0("n_dist>=2:",length(which(sqrt(dt.kmean$withinss/dt.kmean$size) >=2))),
+                  paste0("n_pock>=2:",sum(dt.kmean$size[which(sqrt(dt.kmean$withinss/dt.kmean$size) >=2)])),
+                  paste0("grp_size=1:",length(which(dt.kmean$size == 1))),
+                  paste0("grp_sizeL=1:",length(which(nbr_unique_lig == 1))),
+                  paste0("grp_sizeP=1:",length(which(nbr_unique_prot == 1))) ))
+  dev.off()
+}
+#
+which(dt.kmean$size == 1)
 
 hist(average_within_clusters_dist, main = "average_within_clusters_dist CLASSIC")
 plot(density(average_within_clusters_dist), main = "average_within_clusters_dist CLASSIC n_seeds = 10")
@@ -1559,9 +1832,120 @@ intersect(dt.kmean$size, size_cluster)
 
 plot(density(mean_node_intra_dist))
 
+## analyses kmean ##
+load("../results/K_Means_comparaison/dt.kmean/dt.kmean_nseeds_800")
+grp_sup_2 = which(sqrt(dt.kmean$withinss/dt.kmean$size) < 0.2)
+grp_sup_2 = which(dt.kmean$size == 1)
+names_cluster_kmean = names(which(dt.kmean$cluster == 10))
+lig_cluster_kmean = sapply(strsplit(names_cluster_kmean, "_"), "[", 2)
+table(lig_cluster_kmean)
+length(unique(lig_cluster_kmean))
 
 
-pheatmap(dist(dt[grep("HEM",rownames(dt)),]))
+table(lig_cluster_kmean)[names(which(table_names_ligand[unique(lig_cluster_kmean)] > 1))]
+
+table_names_ligand[unique(lig_cluster_kmean)]
+
+names(which(table_names_ligand > 1))
+table_names_ligand["PE8"]
+#plot size sur nbr ligands
+png(paste0(paste0("../results/K_Means_comparaison/size_L_nseeds_", seeds),
+".png"))
+plot(nbr_unique_lig, dt.kmean$size, xlim = c(0,300), ylim = c(0,300) , 
+     xlab = "Nombre ligands dans groupe", ylab = "Taille du groupe",
+     main = paste("taille clusters et nbr ligands associés  n_seeds = ", seeds))
+dev.off()
+png(paste0(paste0("../results/K_Means_comparaison/size_P_nseeds_", seeds),
+           ".png"))
+plot(nbr_unique_prot, dt.kmean$size, xlim = c(0,300), ylim = c(0,300) , 
+     xlab = "Nombre proteines dans groupe", ylab = "Taille du groupe",
+     main = paste("taille clusters et nbr proteines associés  n_seeds = ", seeds))
+dev.off()
+#plot hist
+png(paste0(paste0("../results/K_Means_comparaison/hist_L_nseeds_", seeds),
+           ".png"))
+hist(nbr_unique_lig,  
+     xlab = "Nombre ligands dans groupe",
+     main = paste("Hist nombre ligands associés n_seeds = ", seeds))
+dev.off()
+png(paste0(paste0("../results/K_Means_comparaison/hist_P_nseeds_", seeds),
+           ".png"))
+hist(nbr_unique_prot, xlim = c(0,300), 
+     xlab = "Nombre proteines dans groupe",
+     main = paste("Hist nombre proteines associés  n_seeds = ", seeds))
+dev.off()
+
+#HEM
+hem_nbr = NULL
+for (i in 1:length(dt.kmean$size)) {
+  names_cluster_kmean = names(which(dt.kmean$cluster == i))
+  lig_cluster_kmean = sapply(strsplit(names_cluster_kmean, "_"), "[", 2)
+  hem_nbr = c(hem_nbr , length(which(lig_cluster_kmean == "HEM")))
+  print(length(which(lig_cluster_kmean == "HEM")))
+  #print(table(lig_cluster_kmean))
+}
+#MTA
+mta_nbr = NULL
+for (i in 1:length(dt.kmean$size)) {
+  names_cluster_kmean = names(which(dt.kmean$cluster == i))
+  lig_cluster_kmean = sapply(strsplit(names_cluster_kmean, "_"), "[", 2)
+  mta_nbr = c(mta_nbr , length(which(lig_cluster_kmean == "MTA")))
+  print(length(which(lig_cluster_kmean == "MTA")))
+  #print(table(lig_cluster_kmean))
+}
+#REA
+rea_nbr = NULL
+for (i in 1:length(dt.kmean$size)) {
+  names_cluster_kmean = names(which(dt.kmean$cluster == i))
+  lig_cluster_kmean = sapply(strsplit(names_cluster_kmean, "_"), "[", 2)
+  rea_nbr = c(rea_nbr , length(which(lig_cluster_kmean == "REA")))
+  print(length(which(lig_cluster_kmean == "REA")))
+  #print(table(lig_cluster_kmean))
+}
+#RBF
+rbf_nbr = NULL
+for (i in 1:length(dt.kmean$size)) {
+  names_cluster_kmean = names(which(dt.kmean$cluster == i))
+  lig_cluster_kmean = sapply(strsplit(names_cluster_kmean, "_"), "[", 2)
+  rbf_nbr = c(rbf_nbr , length(which(lig_cluster_kmean == "RBF")))
+  print(length(which(lig_cluster_kmean == "RBF")))
+  #print(table(lig_cluster_kmean))
+}
+
+dist(dt[grep("HEM",rownames(dt)),])
+
+#
+#test :
+test_clstr_1 = hclust(dist(dt[unlist(alltree$`1`$pockets_names),]), method = "ward.D2")
+####hclust centroids####
+dt_centers.hclust = hclust(dist(dt.kmean$centers), method = "ward.D2")
+#dendrogram
+dt_centers.dend = as.dendrogram(dt_centers.hclust)
+#
+library(dendextend)
+library(colorspace)
+
+#change label name
+lab_cluster_dend = as.integer(labels(dt_centers.dend))
+labels(dt_centers.dend) <- paste0(lab_cluster_dend, 
+                                  paste0(";Nbr_RBF:",rbf_nbr[lab_cluster_dend]))
+#change label color
+c_colors = heat.colors(11, rev = TRUE)
+labels_colors(dt_centers.dend) <- c_colors[as.integer(rbf_nbr[lab_cluster_dend]/max(rbf_nbr)*10)+1]
+# Open a PDF for plotting; units are inches by default
+pdf("../results/K_Means_comparaison/hclust_centroids_rbf.pdf", width=40, height=15)
+
+# Do some plotting
+par(cex=0.3, mar=c(5, 8, 4, 1))
+plot(dt_centers.dend, type = "rectangle", ylab = "Height", cex.lab = 0.7, cex.main = 8,
+     main = "Nombre de ligands RBF dans les groupes")
+
+legend("topright", title = "Représentativité du ligand dans les groupes",
+       legend = paste0("level:", 1:10), 
+       col = c_colors, pch = 20, pt.cex = 15, cex = 8, bty = "n")
+# Close the PDF file's associated graphics device (necessary to finalize the output)
+dev.off()
+
 ### K MEANS with specific dist for pharmacophores###
 library(flexclust)
 flexclust::distEuclidean

@@ -4,8 +4,8 @@ library(treemap)
 library(fmsb)
 radarchart(langues.means)
 ####LOADING TREE AND INFORMATIONS FOR THE SCALE ####
-load(file = "../results/dt_12clean_tree_mcqueen_seeds100.Rdata")
-load(file = "../results/dt_12clean_tree_mcqueen_seeds800.Rdata")
+load(file = "../results/K_Means_comparaison/dt_12clean_tree_classic_seeds800.Rdata")
+#load(file = "../results/dt_12clean_tree_mcqueen_seeds800.Rdata")
 #load(file = "../results/res_12desc/dt_12dsc_tree_withinss400_mcqueen.Rdata")
 #load(file = "../results/dt_72dsc_tree_withinss400_mcqueen.Rdata")
 #load(file = "../results/dt_72dsc_tree_withinss400_mcqueen_physicochemicals.Rdata")
@@ -29,7 +29,6 @@ dt_new_pocket_des = read.table("../data/pockets_MD_NS1/Res_pocketConf0093-2_atm/
 dt_new_pocket_txt = read.table("../data/pockets_COVID19/pocket_PPE/pocket_PPE.txt", header = T, sep = "\t", row.names = 1, fill=TRUE)
 dt_new_pocket_txt = dt_new_pocket_txt["pocket2_atm",]
 
-dt_new_pocket_desR = 
 ## DATA 12 file TXT ##
 new_pocket = data.frame(centers.C_RESIDUES = dt_new_pocket_txt[1,"Nb.RES"],
                         centers.DIAMETER_HULL = dt_new_pocket_txt[1,"Diameter.hull"],
@@ -161,18 +160,18 @@ new_pocket = scale(new_pocket, scaled_center_dt[sort(names(scaled_center_dt))], 
 
 ## DISTANCE 12 ##
 alltree$Do(function(node) node$dist <- dist(rbind(c(
-  node$centers.p_polar_residues,
-  node$centers.p_Nlys_atom,
-  node$centers.p_aliphatic_residues,
-  node$centers.VOLUME_HULL,
-  node$centers.DIAMETER_HULL,
-  node$centers.p_Ooh_atom,
-  node$centers.hydrophobic_kyte,
-  node$centers.p_Ntrp_atom,
-  node$centers.p_Otyr_atom,
   node$centers.C_RESIDUES,
+  node$centers.DIAMETER_HULL,
+  node$centers.hydrophobic_kyte,
+  node$centers.p_aliphatic_residues,
   node$centers.p_aromatic_residues,
-  node$centers.p_hydrophobic_residues
+  node$centers.p_hydrophobic_residues,
+  node$centers.p_Nlys_atom,
+  node$centers.p_Ntrp_atom,
+  node$centers.p_Ooh_atom,
+  node$centers.p_Otyr_atom,
+  node$centers.p_polar_residues,
+  node$centers.VOLUME_HULL
   ),
   new_pocket)))
 ## DISTANCE 72 ##
@@ -305,7 +304,7 @@ plot(s_tree, w_tree)
 Sort(alltree, "dist", decreasing = FALSE)
 print(alltree, "size", "withinss", "dist")
 
-alltree$Get("dist", filterFun = function(node) node$level == 2)
+alltree$Get("dist", filterFun = function(node) node$level == 1)
 tot = alltree$Get("totss", filterFun = isLeaf)
 length(tot)
 #### DATA VISUALIZATION ####
@@ -607,4 +606,84 @@ end_time - start_time
 
 sapply(strsplit(names(head(sort(res_d),10)), "_"), "[", 2)
 head(sort(res_d),10)
+####PLOT DIST ON HCLUST CENTROIDS ####
+library(dendextend)
+library(colorspace)
+###hclust centroids###
+#dt_centers.hclust = hclust(dist(dt.kmean$centers), method = "ward.D2")
+#dendrogram
+dt_centers.dend = as.dendrogram(dt_centers.hclust)
+#change label name
+pock_dist = alltree$Get("dist", filterFun = isLeaf)
+#
+rescale <- function(x) (x-min(x))/(max(x) - min(x)) * 10
+#
+which(pock_dist == min(pock_dist))
 
+centroid_green = which(labels(dt_centers.dend) == as.integer(names(which(pock_dist == min(pock_dist)))))
+lab_cluster_dend = as.integer(labels(dt_centers.dend))
+labels(dt_centers.dend) <- paste0(lab_cluster_dend, 
+                                  paste0(";Dist:",
+                                         round(pock_dist[as.character(lab_cluster_dend)], 2)))
+labels(dt_centers.dend)[centroid_green] <- paste0("pocketConf0093;",
+                                           paste0(lab_cluster_dend[centroid_green], 
+                                           paste0(";Dist:",
+                                                   round(min(pock_dist), 2))))
+#change label color
+c_colors = diverging_hsv(11)
+labels_colors(dt_centers.dend) <- c_colors[as.integer(rescale(pock_dist[as.character(lab_cluster_dend)]))+1]
+labels_colors(dt_centers.dend)[centroid_green] = "green"
+# Open a PDF for plotting; units are inches by default
+pdf("../results/K_Means_comparaison/hclust_centroids_pocketConf0093.pdf", width=40, height=15)
+
+# Do some plotting
+par(cex=0.3, mar=c(5, 8, 4, 1))
+plot(dt_centers.dend, type = "rectangle", ylab = "Height", cex.lab = 0.7, cex.main = 8,
+     main = "Distance de ligands pocketConf0093 dans les groupes")
+
+legend("topright", title = "Disatnce du ligand dans les groupes",
+       legend = paste0("level:", 1:11), 
+       col = c("green", c_colors), pch = 20, pt.cex = 15, cex = 8, bty = "n")
+# Close the PDF file's associated graphics device (necessary to finalize the output)
+dev.off()
+####PLOT DIST ON HCLUST PLUS PROCHE ####
+#
+cluster_dist = alltree$Get("dist", filterFun = isLeaf)
+best_cluster = as.integer(names(which(cluster_dist == min(cluster_dist))))
+#hclust
+dt_centers.hclust = hclust(dist(dt[which(dt.kmean$cluster == best_cluster),]), method = "ward.D2")
+#compute dist
+pock_dist = apply(dt[which(dt.kmean$cluster == best_cluster),sort(colnames(dt))],1,
+                  function(x) {dist(rbind(new_pocket,x))})
+#dendrogram
+dt_centers.dend = as.dendrogram(dt_centers.hclust)
+#
+rescale <- function(x) (x-min(x))/(max(x) - min(x)) * 10
+#
+centroid_green = which(labels(dt_centers.dend) == names(which(pock_dist == min(pock_dist))))
+lab_cluster_dend = labels(dt_centers.dend)
+labels(dt_centers.dend) <- paste0(lab_cluster_dend, 
+                                  paste0(";Dist:",
+                                         round(pock_dist[lab_cluster_dend], 2)))
+labels(dt_centers.dend)[centroid_green] <- paste0("pocketConf0093;",
+                                                  paste0(lab_cluster_dend[centroid_green], 
+                                                         paste0(";Dist:",
+                                                                round(min(pock_dist), 2))))
+#change label color
+c_colors = diverging_hsv(11)
+labels_colors(dt_centers.dend) <- c_colors[as.integer(rescale(pock_dist[as.character(lab_cluster_dend)]))+1]
+labels_colors(dt_centers.dend)[centroid_green] = "green"
+# Open a PDF for plotting; units are inches by default
+pdf(paste0(paste0("../results/K_Means_comparaison/hclust_centroids_pocketConf0093_grp_",
+                  best_cluster),".pdf"),width=40, height=15)
+
+# Do some plotting
+par(cex=1, mar=c(5, 8, 4, 1))
+plot(dt_centers.dend, type = "rectangle", ylab = "Height", cex.lab = 2, cex.main = 3,
+     main = paste0("Distance de ligands pocketConf0093 dans le groupes ", best_cluster))
+
+legend("topright", title = "Disatnce du ligand dans les groupes",
+       legend = paste0("level:", 1:11), 
+       col = c("green", c_colors), pch = 20, pt.cex = 5, cex = 3, bty = "n")
+# Close the PDF file's associated graphics device (necessary to finalize the output)
+dev.off()
