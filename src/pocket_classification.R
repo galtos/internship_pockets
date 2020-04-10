@@ -462,14 +462,17 @@ pockets_classification_tree = function(dt,
   #seceond kmean
   print("here1")
   #dt.kmean = kmeans(dt, centers = nbr_k_optimal, nstart = nstart, iter.max = 200)
-  dt.kmean = kmeans(dt, nbr_k_optimal, nstart = nstart, algorithm="MacQueen", iter.max = 200)
+  #dt.kmean = kmeans(dt, nbr_k_optimal, nstart = nstart, algorithm="MacQueen", iter.max = 200)
 
   print("here2")
   pockets_cluster = list()
+  cluster_dend = list()
   #pharmacophores_consensus_mean_cluster = list()
   #pharmacophores_consensus_50_cluster = list()
   for (i in 1:nbr_k_optimal){
     pockets_cluster[[i]] = names(which(dt.kmean$cluster == i))
+    cluster_dend[[i]] = as.dendrogram(hclust(dist(dt[which(dt.kmean$cluster == i),]),
+                                      method = "ward.D2"))
     #pharmacophores_consensus_mean_cluster[[i]] = apply(dt_pharmacophores[intersect(rownames(dt_pharmacophores),
     #                                  names(which(dt.kmean$cluster == i))),], 2,
     #                                  function(x) v <- as.integer(mean(x)))
@@ -487,7 +490,8 @@ pockets_classification_tree = function(dt,
                           size = dt.kmean$size,
                           betweenss = rep(dt.kmean$betweenss, nbr_k_optimal),
                           totss = rep(dt.kmean$totss, nbr_k_optimal),
-                          pockets_names = I(pockets_cluster)#,
+                          pockets_names = I(pockets_cluster),
+                          cluster_dend = I(cluster_dend)
                           #pharmacophores_consensus_mean = I(pharmacophores_consensus_mean_cluster),
                           #pharmacophores_consensus_50 = I(pharmacophores_consensus_50_cluster)
                           )
@@ -556,7 +560,7 @@ dt = delete_clean_data(dt)
 #dt = dt[,names_physicochemical]
 #dt = dt[,names_geometrical]
 #mix data
-#dt = dt[sample(1:nrow(dt)),]
+#dt = dt[sample(1:nrow(dt)),] 
 #scale data
 dt = scale(dt)
 #
@@ -567,11 +571,11 @@ list_path_tree = path_tree
 tmp_pockets_cluster_names = NULL
 tmp_list_path_tree = NULL
 cluster_infos = NULL
-nstart = 100
+nstart = 1#100
 n = 1
 iter=1
 iter_path = 1
-for (iter in 1:3) {
+for (iter in 1:1) {
   for(i in 1:length(pockets_cluster_names)) {
     if(!is.null(pockets_cluster_names[[i]])) {
       cluster_dt = pockets_classification_tree(
@@ -601,12 +605,27 @@ for (iter in 1:3) {
   tmp_list_path_tree = NULL
   print(iter)
 }
+cluster_alltree = data.frame(
+                        withinss = NA,
+                        size = NA,
+                        betweenss = NA,
+                        totss = NA,
+                        pockets_names = NA,
+                        cluster_dend = I(list(
+                                       as.dendrogram(hclust(dist(dt.kmean$centers),
+                                                     method = "ward.D2")))),
+                        pathString = "alltree"
+)
+cluster_alltree = cbind(cluster_infos[1,1:12],cluster_alltree)
+cluster_alltree[,1:12] = NA
+colnames(cluster_alltree)
+cluster_infos = rbind(cluster_alltree,cluster_infos)
 alltree <- as.Node(cluster_infos)
 print(alltree, "size","withinss", "totss", "betweenss")
 print(alltree, "size","withinss", "centers.hydrophobic_kyte", "centers.p_Nlys_atom", "centers.p_Ntrp_atom")
 alltree$fieldsAll
 ##save tree
-save(alltree, file = "../results/K_Means_comparaison/dt_12clean_tree_classic_seeds800.Rdata", version = 2)
+save(alltree, file = "../results/K_Means_comparaison/dt_12clean_tree_classic_seeds800_dend.Rdata", version=2)
 #save scale infos
 write.table(attr(dt, "scaled:center"), file = "../results/scaled:center_dt12clean.Rdata")
 write.table(attr(dt, "scaled:scale"), file = "../results/scaled:scale_dt12clean.Rdata")
@@ -1034,6 +1053,7 @@ bet/tots ######### here total R2
 
 R2 = alltree$Get("R2", filterFun = function(node) node$level == 4)
 # plot
+
 w_tree = alltree$Get("withinss", filterFun = isLeaf)
 s_tree = alltree$Get("size", filterFun = isLeaf)
 
@@ -1046,10 +1066,6 @@ plot(s_tree, sqrt(w_tree/s_tree), xlim = c(0,300), ylim = c(0,3.5),
 
 grp_sup_2 = which(sqrt(w_tree/s_tree) >=2)
 
-points(mean(s_tree), mean(sqrt(w_tree/s_tree)), col = "red")
-points(s_tree[-grp_sup_2], 
-       sqrt(w_tree/s_tree)[-grp_sup_2], col = "green")
-
 nbr_unique_lig = NULL
 nbr_unique_prot = NULL
 for (n_grp in 1:seeds) {
@@ -1060,23 +1076,50 @@ for (n_grp in 1:seeds) {
   nbr_unique_prot = c(nbr_unique_prot,
                       length(unique(sapply(strsplit(names_grp, "_"), "[", 1))))
 }
-text(s_tree, sqrt(w_tree/s_tree), 
-     labels=paste(paste0("L:",nbr_unique_lig),
-                  paste0("P:",nbr_unique_prot), sep = "|"),
-     cex= 0.6, pos=3, col = "blue")
+nbr_unique_prot_pch = nbr_unique_prot
+nbr_unique_prot_pch[which(nbr_unique_prot == 1)] = 13
+nbr_unique_prot_pch[which(nbr_unique_prot > 1)] = 10
+nbr_unique_prot_pch[which(nbr_unique_prot > 10)] = 1
+#points(mean(dt.kmean$size), mean(sqrt(dt.kmean$withinss/dt.kmean$size)), col = "red")
+
+points(s_tree[which(nbr_unique_lig == 1)], 
+       sqrt(w_tree/s_tree)[which(nbr_unique_lig == 1)], 
+       col = "red", pch = nbr_unique_prot_pch[which(nbr_unique_lig == 1)])
+points(s_tree[which(nbr_unique_lig > 1)], 
+       sqrt(w_tree/s_tree)[which(nbr_unique_lig > 1)], 
+       col = "orange", pch = nbr_unique_prot_pch[which(nbr_unique_lig > 1)])
+points(s_tree[which(nbr_unique_lig > 10)], 
+       sqrt(w_tree/s_tree)[which(nbr_unique_lig > 10)], 
+       col = "green", pch = nbr_unique_prot_pch[which(nbr_unique_lig > 10)])
+#text(s_tree, sqrt(w_tree/s_tree), 
+#     labels=paste(paste0("L:",nbr_unique_lig),
+#                  paste0("P:",nbr_unique_prot), sep = "|"),
+#     cex= 0.6, pos=3, col = "blue")
 
 #text(dt.kmean$size[grp_sup_2], sqrt(dt.kmean$withinss/dt.kmean$size)[grp_sup_2], 
 #     labels=paste(dt.kmean$size[grp_sup_2],
 #                  round(sqrt(dt.kmean$withinss/dt.kmean$size)[grp_sup_2], 2), sep = ","),
 #     cex= 0.6, pos=3, col = "blue")
-legend("topright", inset=c(-0.4,-0.15), xpd=TRUE, mar(c(7,7,7,7)), cex = 1, bty = "n",
-       legend=c(paste0("mean_dist:",round(mean(sqrt(w_tree/s_tree)),2)),
+legend("topright", inset=c(-0.35,0), xpd=TRUE, mar(c(7,7,7,7)), cex = 1, bty = "n",
+       legend=c(paste0("mean_dist:"),
+                paste0(round(mean(sqrt(w_tree/s_tree)),2),
+                       paste0("±", 
+                              paste0(round(sd(sqrt(w_tree/s_tree)),2)),"sd")),
                 paste0("mean_size:",round(mean(mean(s_tree)),2)),
                 paste0("n_dist>=2:",length(which(sqrt(w_tree/s_tree) >=2))),
                 paste0("n_pock>=2:",sum(s_tree[which(sqrt(w_tree/s_tree) >=2)])),
                 paste0("grp_size=1:",length(which(s_tree == 1))),
                 paste0("grp_sizeL=1:",length(which(nbr_unique_lig == 1))),
                 paste0("grp_sizeP=1:",length(which(nbr_unique_prot == 1))) ))
+legend( x="bottomright", inset=c(-0.375,0), xpd=TRUE, mar(c(7,7,7,7)), cex = 1, bty = "n",
+        legend=c("grp_sizeL=[1]", 
+                 "grp_sizeL=]1,10]",
+                 "grp_sizeL=]10,[",
+                 "grp_sizeP=[1]",
+                 "grp_sizeP=]1,10]",
+                 "grp_sizeP=]10,["),
+        col=c("red","orange","green", "black", "black", "black"),
+        lwd=1, lty=c(0,0), pch=c(1,1,1,13,10,1), x.intersp = 0)
 dev.off()
 
 png(paste0(paste0("../results/K_Means_comparaison/size_L_nseeds_", seeds),
@@ -1337,17 +1380,17 @@ for (i in 1:length(names_ligand_unique)){
     for (j in 1:(length(index)-1)) {
       for (k in (j+1):length(index)) {
         if(sapply(strsplit(rownames(dt)[index[j]], "_"), "[", 1) == sapply(strsplit(rownames(dt)[index[k]], "_"), "[", 1)) { #CHANGE TO != FOR DIFFERENT POCKETS
-          #dist_pock = c(dist_pock, dist(dt[c(index[j],index[k]),]))
-          if(dist(dt[c(index[j],index[k]),]) > 3) {
-            print(paste(index[j],index[k]))
-          }
+          dist_pock = c(dist_pock, dist(dt[c(index[j],index[k]),]))
+          #if(dist(dt[c(index[j],index[k]),]) > 3) {
+          #  print(paste(index[j],index[k]))
+          #}
           #print(dt[c(index[j],index[k]),2])
           #print(dt[c(index[i],index[j]),])
         }
       }
     }
     if(!is.null(dist_pock)) {
-      #dist_ligs[flag] = mean(dist_pock)
+      dist_ligs[flag] = mean(dist_pock)
       flag = flag+1      
     }
   }
@@ -1477,16 +1520,16 @@ for (i in 1:length(names_ligand_unique)){
   index = grep(paste0(paste0("_",names_ligand_unique[i]),"_"),rownames(dt))
   if(length(index) > 1) {
     print(i)
-    if(length(index) > 100) {
-      index = sample(index,100)
+    if(length(index) > 10) {
+      index = sample(index,10)
     }
     dist_pock = NULL
     for (j in 1:(length(index)-1)) {
       for (k in (j+1):length(index)) {
         if(sapply(strsplit(rnames_dt[index[j]], "_"), "[", 1) != sapply(strsplit(rnames_dt[index[k]], "_"), "[", 1)) { #CHANGE TO != FOR DIFFERENT POCKETS
-          print(index[j])
-          print(index[k])
-          print(dist_fuzcav_ph(as.integer(dt[index[j],]),as.integer(dt[index[k],])))
+          #print(index[j])
+          #print(index[k])
+          #print(dist_fuzcav_ph(as.integer(dt[index[j],]),as.integer(dt[index[k],])))
           dist_pock = c(dist_pock, 
                         dist_fuzcav_ph(as.integer(dt[index[j],]),as.integer(dt[index[k],])))
           
@@ -1494,7 +1537,7 @@ for (i in 1:length(names_ligand_unique)){
       }
     }
     if(!is.null(dist_pock)) {
-      #dist_ligs[flag] = mean(dist_pock)
+      dist_ligs[flag] = mean(dist_pock)
       flag = flag+1      
     }
   }
@@ -1502,8 +1545,8 @@ for (i in 1:length(names_ligand_unique)){
 length(which(dist_ligs > 0))
 # dist for different ligands
 
-dist_ligs_random = rep(0,100)#length(unique(names_ligand)))
-for (i in 1:100){#length(unique(names_ligand))){
+dist_ligs_random = rep(0,5000)#length(unique(names_ligand)))
+for (i in 1:5000){#length(unique(names_ligand))){
   print(i)
   lig = sample(names_ligand_unique, 2)
   f_1=grep(paste0(paste0("_",lig[1]),"_"),rownames(dt))
@@ -1521,7 +1564,21 @@ hist(dist_ligs_random)
 d_random = density(dist_ligs_random)
 plot(d_random)
 #
-sm.density.compare(c(dist_ligs_random,dist_ligs[1:flag]), c(rep(1,length(dist_ligs_random)),rep(2,length(dist_ligs[1:flag]))), model = "none", xlim=c(0,1))
+load(file = "../results/pharmacophores_results/dist_ligs.Rdata")
+load(file = "../results/pharmacophores_results/dist_ligs_random.Rdata")
+sm.density.compare(c(dist_ligs_random,dist_ligs[which(dist_ligs>0)]), 
+                   c(rep(1,length(dist_ligs_random)),rep(2,length(dist_ligs[which(dist_ligs>0)]))), 
+                   model = "none", xlim=c(0,1))
+
+sm.density.compare(c(dist_ligs_random,
+                     dist_ligs[which(dist_ligs>0)]),
+                   c(rep(1,length(dist_ligs_random)),
+                     rep(2,length(dist_ligs[which(dist_ligs>0)]))
+                   ),
+                   model = "none", xlim=c(0,1)
+                   , xlab = "pharmacophore distance bewteen pockets"
+                   , main = "Density plot of the pharmacophore similarity between pockets from different ligands linking the same ligand")
+
 
 abline(v=mean(dist_ligs[1:flag]), col = "blue")
 abline(v=mean(dist_ligs_random), col = "red")
@@ -1763,6 +1820,8 @@ plot(30:40, mean_average_within_clusters_dist,
      ylab = "moyenne de distance moyenne entre les poches protéiques et le centroide de leur groupe")
 dev.off()
 #
+library(colorspace)
+c_colors = diverging_hsv(11)
 nstart = 1
 for (seeds in c(800, 1000)) { #800,1000
   print(seeds)
@@ -1778,10 +1837,6 @@ for (seeds in c(800, 1000)) { #800,1000
   
   grp_sup_2 = which(sqrt(dt.kmean$withinss/dt.kmean$size) >=2)
   
-  points(mean(dt.kmean$size), mean(sqrt(dt.kmean$withinss/dt.kmean$size)), col = "red")
-  points(dt.kmean$size[-grp_sup_2], 
-         sqrt(dt.kmean$withinss/dt.kmean$size)[-grp_sup_2], col = "green")
-  
   nbr_unique_lig = NULL
   nbr_unique_prot = NULL
   for (n_grp in 1:seeds) {
@@ -1790,24 +1845,52 @@ for (seeds in c(800, 1000)) { #800,1000
                        length(unique(sapply(strsplit(names_grp, "_"), "[", 2))))
     nbr_unique_prot = c(nbr_unique_prot,
                         length(unique(sapply(strsplit(names_grp, "_"), "[", 1))))
-  }
-  text(dt.kmean$size, sqrt(dt.kmean$withinss/dt.kmean$size), 
-       labels=paste(paste0("L:",nbr_unique_lig),
-                    paste0("P:",nbr_unique_prot), sep = "|"),
-       cex= 0.6, pos=3, col = "blue")
+  } 
+  nbr_unique_prot_pch = nbr_unique_prot
+  nbr_unique_prot_pch[which(nbr_unique_prot == 1)] = 13
+  nbr_unique_prot_pch[which(nbr_unique_prot > 1)] = 10
+  nbr_unique_prot_pch[which(nbr_unique_prot > 10)] = 1
+  #points(mean(dt.kmean$size), mean(sqrt(dt.kmean$withinss/dt.kmean$size)), col = "red")
+  
+  points(dt.kmean$size[which(nbr_unique_lig == 1)], 
+         sqrt(dt.kmean$withinss/dt.kmean$size)[which(nbr_unique_lig == 1)], 
+         col = "red", pch = nbr_unique_prot_pch[which(nbr_unique_lig == 1)])
+  points(dt.kmean$size[which(nbr_unique_lig > 1)], 
+         sqrt(dt.kmean$withinss/dt.kmean$size)[which(nbr_unique_lig > 1)], 
+         col = "orange", pch = nbr_unique_prot_pch[which(nbr_unique_lig > 1)])
+  points(dt.kmean$size[which(nbr_unique_lig > 10)], 
+         sqrt(dt.kmean$withinss/dt.kmean$size)[which(nbr_unique_lig > 10)], 
+         col = "green", pch = nbr_unique_prot_pch[which(nbr_unique_lig > 10)])
+
+  #text(dt.kmean$size, sqrt(dt.kmean$withinss/dt.kmean$size), 
+  #     labels=paste(paste0("L:",nbr_unique_lig),
+  #                  paste0("P:",nbr_unique_prot), sep = "|"),
+  #     cex= 0.6, pos=3, col = "blue")
   
   #text(dt.kmean$size[grp_sup_2], sqrt(dt.kmean$withinss/dt.kmean$size)[grp_sup_2], 
   #     labels=paste(dt.kmean$size[grp_sup_2],
   #                  round(sqrt(dt.kmean$withinss/dt.kmean$size)[grp_sup_2], 2), sep = ","),
   #     cex= 0.6, pos=3, col = "blue")
-  legend("topright", inset=c(-0.4,-0.15), xpd=TRUE, mar(c(7,7,7,7)), cex = 1, bty = "n",
-         legend=c(paste0("mean_dist:",round(mean(sqrt(dt.kmean$withinss/dt.kmean$size)),2)),
+  legend("topright", inset=c(-0.35,0), xpd=TRUE, mar(c(7,7,7,7)), cex = 1, bty = "n",
+         legend=c(paste0("mean_dist:"),
+                  paste0(round(mean(sqrt(dt.kmean$withinss/dt.kmean$size)),2),
+                         paste0("±", 
+                         paste0(round(sd(sqrt(dt.kmean$withinss/dt.kmean$size)),2)),"sd")),
                   paste0("mean_size:",round(mean(mean(dt.kmean$size)),2)),
                   paste0("n_dist>=2:",length(which(sqrt(dt.kmean$withinss/dt.kmean$size) >=2))),
                   paste0("n_pock>=2:",sum(dt.kmean$size[which(sqrt(dt.kmean$withinss/dt.kmean$size) >=2)])),
                   paste0("grp_size=1:",length(which(dt.kmean$size == 1))),
                   paste0("grp_sizeL=1:",length(which(nbr_unique_lig == 1))),
                   paste0("grp_sizeP=1:",length(which(nbr_unique_prot == 1))) ))
+  legend( x="bottomright", inset=c(-0.375,0), xpd=TRUE, mar(c(7,7,7,7)), cex = 1, bty = "n",
+          legend=c("grp_sizeL=[1]", 
+                   "grp_sizeL=]1,10]",
+                   "grp_sizeL=]10,[",
+                   "grp_sizeP=[1]",
+                   "grp_sizeP=]1,10]",
+                   "grp_sizeP=]10,["),
+          col=c("red","orange","green", "black", "black", "black"),
+          lwd=1, lty=c(0,0), pch=c(1,1,1,13,10,1), x.intersp = 0)
   dev.off()
 }
 #
@@ -1833,7 +1916,8 @@ intersect(dt.kmean$size, size_cluster)
 plot(density(mean_node_intra_dist))
 
 ## analyses kmean ##
-load("../results/K_Means_comparaison/dt.kmean/dt.kmean_nseeds_800")
+seeds = 800
+load(paste0("../results/K_Means_comparaison/dt.kmean/dt.kmean_nseeds_", seeds))
 grp_sup_2 = which(sqrt(dt.kmean$withinss/dt.kmean$size) < 0.2)
 grp_sup_2 = which(dt.kmean$size == 1)
 names_cluster_kmean = names(which(dt.kmean$cluster == 10))
@@ -1863,18 +1947,23 @@ plot(nbr_unique_prot, dt.kmean$size, xlim = c(0,300), ylim = c(0,300) ,
 dev.off()
 #plot hist
 png(paste0(paste0("../results/K_Means_comparaison/hist_L_nseeds_", seeds),
-           ".png"))
-hist(nbr_unique_lig,  
+           "_inf10.png"))
+hist(nbr_unique_lig[which(nbr_unique_lig < 10)],  
      xlab = "Nombre ligands dans groupe",
      main = paste("Hist nombre ligands associés n_seeds = ", seeds))
 dev.off()
 png(paste0(paste0("../results/K_Means_comparaison/hist_P_nseeds_", seeds),
-           ".png"))
-hist(nbr_unique_prot, xlim = c(0,300), 
+           "_inf10.png"))
+hist(nbr_unique_prot[which(nbr_unique_prot < 10)], xlim = c(0,300), 
      xlab = "Nombre proteines dans groupe",
      main = paste("Hist nombre proteines associés  n_seeds = ", seeds))
 dev.off()
-
+png(paste0(paste0("../results/K_Means_comparaison/hist_size_nseeds_", seeds),
+           "_inf10.png"))
+hist(dt.kmean$size[which(dt.kmean$size < 10)],
+     xlab = "Nombre poches dans groupe",
+     main = paste("Hist taille groupes n_seeds = ", seeds))
+dev.off()
 #HEM
 hem_nbr = NULL
 for (i in 1:length(dt.kmean$size)) {
@@ -1925,24 +2014,50 @@ dt_centers.dend = as.dendrogram(dt_centers.hclust)
 library(dendextend)
 library(colorspace)
 
+##select lig##
+lig_nbr = hem_nbr
 #change label name
 lab_cluster_dend = as.integer(labels(dt_centers.dend))
 labels(dt_centers.dend) <- paste0(lab_cluster_dend, 
-                                  paste0(";Nbr_RBF:",rbf_nbr[lab_cluster_dend]))
+                                  paste0(";Nbr_HEM:",lig_nbr[lab_cluster_dend]))
+
 #change label color
-c_colors = heat.colors(11, rev = TRUE)
-labels_colors(dt_centers.dend) <- c_colors[as.integer(rbf_nbr[lab_cluster_dend]/max(rbf_nbr)*10)+1]
+color.gradient <- function(x, colors=c("gold","darkgreen"), colsteps=100) {
+  return( colorRampPalette(colors) (colsteps) [ findInterval(x, seq(min(x),max(x), length.out=colsteps)) ] )
+}
+x <- c((1:100)^2, (100:1)^2)
+plot(lig_nbr,col=color.gradient(lig_nbr), pch=19,cex=2)
+c_colors = color.gradient(lig_nbr)
+
+color.df<-data.frame(COLOR_VALUE=lig_nbr, color.name=color.gradient(lig_nbr))
+color.df$color.name = as.character(color.df$color.name)
+color.df[which(color.df$COLOR_VALUE == 0), "color.name"] = "#FFFFFF"
+labels_colors(dt_centers.dend) <- as.character(color.df[as.character(order.dendrogram(dt_centers.dend)), "color.name"])
+
 # Open a PDF for plotting; units are inches by default
-pdf("../results/K_Means_comparaison/hclust_centroids_rbf.pdf", width=40, height=15)
+pdf("../results/K_Means_comparaison/hclust_centroids_hem_ph.pdf", width=40, height=15)
 
 # Do some plotting
-par(cex=0.3, mar=c(5, 8, 4, 1))
+par(cex=0.3, mar=c(5, 8, 6, 1))
 plot(dt_centers.dend, type = "rectangle", ylab = "Height", cex.lab = 0.7, cex.main = 8,
-     main = "Nombre de ligands RBF dans les groupes")
+     main = paste0("Nombre de ligands HEM dans les groupes. Nombre total:",sum(lig_nbr)))
 
-legend("topright", title = "Représentativité du ligand dans les groupes",
-       legend = paste0("level:", 1:10), 
-       col = c_colors, pch = 20, pt.cex = 15, cex = 8, bty = "n")
+legend("topright", title = "Occurence du ligands dans les groupes",
+       legend = c(paste0("max:", round(max(lig_nbr),2)),
+                  rep("",3),
+                  rep("",4),
+                  paste0("min:", round(min(lig_nbr),2))), pt.cex = 15, cex = 8, bty = "n")
+names(lig_nbr) = 1:length(lig_nbr)
+legend("topleft", title = "10 groupes les plus représentatifs:",
+       legend = paste("Groupe", 
+                      paste(names(sort(lig_nbr, decreasing = T)[1:10]),
+                            paste("| Nbr", round(sort(lig_nbr,decreasing = T)[1:10],2)))),
+       pt.cex = 15, cex = 8, bty = "n")
+l_0 = length(which(lig_nbr == 0))
+gradientLegend(valRange=c(-14,14), color=c(rep("#FFFFFF",10),
+                                           color.gradient(sort(lig_nbr))[-c(1:l_0)]), 
+               pos=c(680,40,730,63), coords=TRUE, 
+               border.col=alpha('gray'), side=4)#pos.num = 3, length=.2, depth=.02)
 # Close the PDF file's associated graphics device (necessary to finalize the output)
 dev.off()
 
@@ -2006,5 +2121,190 @@ ph.hclust = hclust(hclust_ph_dist, method = "ward.D2")
 png(filename="../results/kmeans_hclust_test_k3_20pocks.png")
 plot(ph.hclust, labels = res@cluster, hang = -1, cex = 0.6)
 dev.off()
+#### TEST COLLAPSIBLE TREE ####
+library(collapsibleTree) 
+# input data must be a nested data frame:
+head(warpbreaks)
+dim(warpbreaks)
+p <- collapsibleTree( warpbreaks, c("wool", "tension", "breaks"))
+p
+#
+
+c_1= NULL
+c_2= NULL
+c_3= NULL
+for (i in strsplit(cluster_infos$pathString, "/")) {#nrow(cluster_infos)
+  c_1 = c(c_1,i[2])
+  c_2 = c(c_2,i[3])
+  c_3 = c(c_3,i[3])
+}
+cluster_collaps = cbind(cluster_infos, c_1)
+cluster_collaps = cbind(cluster_collaps, c_2)
+cluster_collaps = cbind(cluster_collaps, c_3)
+  
+p <- collapsibleTree( cluster_collaps, c("c_1", "c_2", "c_3"), attribute ="size")
+p
+
+collapsibleTree(
+  Geography,
+  hierarchy = c("continent", "sub_region"),
+  width = 800
+)
+#### pharmacophores kmedoids 800 seeds####
+
+dt.kmedoids.ph.800 = read.table("../results/pharmacophores_results/clusters_nseeds800_Deuc.txt", sep = ",")
+
+dt.kmedoids.ph.800[1:nrow(dt.kmedoids.ph.800),]
+which(duplicated(dt.kmedoids.ph.800[1:nrow(dt.kmedoids.ph.800),])==TRUE)
+
+
+dt.kmedoids.ph.800["4AP3_NAP_A_1",]
+which(dt.kmedoids.ph.800[,1] == "4AP3_NAP_A_1")  
+dt.kmedoids.ph.800[15120,] = NA
+
+dt.kmedoids.ph.800 <- dt.kmedoids.ph.800[!duplicated(dt.kmedoids.ph.800[,1]),]
+rownames(dt.kmedoids.ph.800) = dt.kmedoids.ph.800[1:nrow(dt.kmedoids.ph.800),1]
+dt.kmedoids.ph.800[,2] = dt.kmedoids.ph.800[,2]+1
+nrow(dt.kmedoids.ph.800)
+#dt.kmedoids.ph.800[,1] = NULL
+dt.kmedoids.ph.800 = as.data.frame(dt.kmedoids.ph.800)
+hem_nbr = NULL
+for (i in 1:800) {
+  names_cluster_kmean = rownames(dt.kmedoids.ph.800[which(dt.kmedoids.ph.800[,2] == i),])
+  lig_cluster_kmean = sapply(strsplit(names_cluster_kmean, "_"), "[", 2)
+  hem_nbr = c(hem_nbr , length(which(lig_cluster_kmean == "HEM")))
+  print(length(which(lig_cluster_kmean == "HEM")))
+  #print(table(lig_cluster_kmean))
+}
+max(dt.kmedoids.ph.800[,2])
+#### VALIDATION PROTOCOLE ####
+seeds = 800
+load(paste0("../results/K_Means_comparaison/dt.kmean/dt.kmean_nseeds_", seeds))
+## POUR 800 GRAINES
+names_prot = sapply(strsplit(rownames(dt), "_"), "[", 1)
+names_ligand = sapply(strsplit(rownames(dt), "_"), "[", 2)
+table_names_ligand = table(names_ligand)
+#name ligands seen more than 1 time
+names_ligand_unique_sup1 = names(which(table_names_ligand > 1))
+#list of ligand names in clusters
+lig_cluster_kmean = list()
+for (i in 1:length(dt.kmean$size)) {
+  names_cluster_kmean = names(which(dt.kmean$cluster == i))
+  lig_cluster_kmean[[i]] = sapply(strsplit(names_cluster_kmean, "_"), "[", 2)
+}
+lig_cluster_kmean
+#list of protein names in clusters
+prot_cluster_kmean = list()
+for (i in 1:length(dt.kmean$size)) {
+  names_cluster_kmean = names(which(dt.kmean$cluster == i))
+  prot_cluster_kmean[[i]] = sapply(strsplit(names_cluster_kmean, "_"), "[", 1)
+}
+prot_cluster_kmean
+###Si ligand se retrouve dans cluster le plus représenté###
+vec_number_list = list()
+vec_group_list = list()
+flag = 0
+for (lig_name in names_ligand_unique_sup1) {
+  flag = flag+1
+  print(flag)
+  vec_number = NULL
+  for (group in 1:length(lig_cluster_kmean)) {
+    lig_cluster_kmean_group = table(lig_cluster_kmean[[group]])
+    if(is.na(lig_cluster_kmean_group[lig_name])) {
+      vec_number = c(vec_number, 0)
+    } else {
+      vec_number = c(vec_number, lig_cluster_kmean_group[lig_name])
+    }
+  }
+  vec_number_list[[lig_name]] = vec_number
+  vec_group_list[[lig_name]] = which(vec_number == max(vec_number))
+}
+length(vec_number_list)
+length(vec_group_list)
+
+dt_validation = data.frame( row.names = names_ligand_unique_sup1,
+                            number = I(vec_number_list),
+                            group = I(vec_group_list))
+save(dt_validation, file = "../results/prediction_validation/data/dt_validation.Rdata")
+load("../results/prediction_validation/data/dt_validation.Rdata")
+#count number pocket in cluster most representative / sum
+res = sapply(vec_number_list,max)/sapply(vec_number_list,sum)
+boxplot(res)
+hist(res)
+inf_10 = which(sapply(vec_number_list,sum) <10)
+inf_100 = which(sapply(vec_number_list,sum) <100 & sapply(vec_number_list,sum) >10)
+sup_10 = which(sapply(vec_number_list,sum) >10)
+sup_100 = which(sapply(vec_number_list,sum) >100)
+#
+hist(res[inf_10])
+length(res[inf_10])
+
+hist(res[inf_100])
+length(res[inf_100])
+
+hist(res[sup_10])
+length(res[sup_10])
+
+hist(res[sup_100])
+length(res[sup_100])
+#
+#Selon seuil de distance entre clusters
+dist_seuil = 2
+##chercher un ligand
+dt_validation["0WP",]
+###prospect benchamark###
+###WITH PDB NAMES###
+#dataset : barelier_structures
+barelier_structures = read.csv("../data/benchmark/barelier_structures.tar/barelier_structures/barelier_structures/barelier_structures.csv", header = FALSE)
+barelier_structures[,1] = toupper(barelier_structures[,1])
+barelier_structures[,2] = toupper(barelier_structures[,2])
+#dataset : identical_structures
+identical_structures = read.csv("../data/benchmark/identical_structures.tar/identical_structures/identical_structures/identical_structures.csv", header = FALSE)
+identical_structures[,1] = substr(toupper(identical_structures[,1]),1,4)
+identical_structures[,2] = substr(toupper(identical_structures[,2]),1,4)
+###
+###
+dt_benchmark = barelier_structures
+dt_benchmark = identical_structures
+###
+y_true = rep(0, nrow(dt_benchmark))
+y_true[which(dt_benchmark$V3 == "active")] = 1
+y_true
+#
+y_predict = rep(0, nrow(dt_benchmark))
+#
+count = 0
+n_line = 0
+for (names_2prot in intersect(dt_in_1,dt_in_2)) {
+  # if(is.element(dt_benchmark[names_2prot,1], names_prot)) {
+  #   count =  count+1
+  #   print(count)
+  # }
+  n_line = n_line+1
+  print(n_line)
+  prediction = 0
+  for (i in 1:length(prot_cluster_kmean)) {
+    if(is.element(dt_benchmark[names_2prot,1], prot_cluster_kmean[[i]]) & 
+       is.element(dt_benchmark[names_2prot,2], prot_cluster_kmean[[i]])) {
+      prediction = 1
+      print(names_2prot)
+      print("yes")
+    }
+  } 
+  y_predict[names_2prot] = prediction
+}
+count
+length(which(y_true == 1))
+table(y_predict,y_true) 
+
+
+#count number in data
+length(which(is.element(dt_benchmark[,1], names_prot) == TRUE))
+length(which(is.element(dt_benchmark[,2], names_prot) == TRUE))
+dt_in_1 = which(is.element(dt_benchmark[,1], names_prot) == TRUE)
+dt_in_2 = which(is.element(dt_benchmark[,2], names_prot) == TRUE)
+length(intersect(dt_in_1,dt_in_2))
+###WITH POCKET DESCRIPTORS###
+
 
 

@@ -5,6 +5,8 @@ library(fmsb)
 radarchart(langues.means)
 ####LOADING TREE AND INFORMATIONS FOR THE SCALE ####
 load(file = "../results/K_Means_comparaison/dt_12clean_tree_classic_seeds800.Rdata")
+load(file = "../results/K_Means_comparaison/dt_12clean_tree_classic_seeds800_dend.Rdata")
+
 #load(file = "../results/dt_12clean_tree_mcqueen_seeds800.Rdata")
 #load(file = "../results/res_12desc/dt_12dsc_tree_withinss400_mcqueen.Rdata")
 #load(file = "../results/dt_72dsc_tree_withinss400_mcqueen.Rdata")
@@ -19,11 +21,26 @@ scaled_scale_dt = scaled_scale_dt_t[,1]
 names(scaled_scale_dt) = rownames(scaled_scale_dt_t)
 ####################################################
 ####LOADING INFORMATION NEW POCKET####
+pocket_name = "pocketConf0101"
 ##DES file
 dt_new_pocket_des = read.table("../data/pockets_MD_NS1/Res_pocketConf0101-p0_atm/pocketConf101-0_atm.des", row.names = 1)
 dt_new_pocket_des = read.table("../data/pockets_MD_NS1/Res_pocketConf047-0_atm/pocketConf047-0_atm.des", row.names = 1)
 dt_new_pocket_des = read.table("../data/pockets_MD_NS1/Res_pocketConf137-0_atm/pocket-Conf137-0_atm.des", row.names = 1)
 dt_new_pocket_des = read.table("../data/pockets_MD_NS1/Res_pocketConf0093-2_atm/pocket-Conf0093-2_atm.des", row.names = 1)
+#validation protocole:
+dt_new_pocket_des = read.table("../data/prediction_validation/6JQQ_HEM_A_1_prox5_5.des", row.names = 1)
+dt_new_pocket_des = read.table("../data/prediction_validation/6L1X_HEM_A_1_prox5_5.des", row.names = 1)
+dt_new_pocket_des = read.table("../data/prediction_validation/6L1X_HEM_A_2_prox5_5.des", row.names = 1)
+dt_new_pocket_des = read.table("../data/prediction_validation/6L3H_HEM_A_1_prox5_5.des", row.names = 1)
+dt_new_pocket_des = read.table("../data/prediction_validation/6L3H_HEM_A_2_prox5_5.des", row.names = 1)
+dt_new_pocket_des = read.table("../data/prediction_validation/6OTW_HEM_A_1_prox5_5.des", row.names = 1)
+dt_new_pocket_des = read.table("../data/prediction_validation/6OTX_HEM_A_1_prox5_5.des", row.names = 1)
+dt_new_pocket_des = read.table("../data/prediction_validation/5XNC_MTA_A_1_prox5_5.des", row.names = 1)
+dt_new_pocket_des = read.table("../data/prediction_validation/6VCY_MTA_A_1_prox5_5.des", row.names = 1)
+dt_new_pocket_des = read.table("../data/prediction_validation/6EU9_REA_B_1_prox5_5.des", row.names = 1)
+dt_new_pocket_des = read.table("../data/prediction_validation/6N7F_RBF_A_1_prox5_5.des", row.names = 1)
+dt_new_pocket_des = read.table("../data/prediction_validation/5UMW_RBF_B_1_prox5_5.des", row.names = 1)
+dt_new_pocket_des = read.table("../data/prediction_validation/5W4Z_RBF_A_1_prox5_5.des", row.names = 1)
 ##TXT after fpocket file
 #covid19:
 dt_new_pocket_txt = read.table("../data/pockets_COVID19/pocket_PPE/pocket_PPE.txt", header = T, sep = "\t", row.names = 1, fill=TRUE)
@@ -572,6 +589,7 @@ plot(dt_centers.hclust)
 
 ####HCLUST on closest cluster ####
 library(dendextend)
+library(SDMTools)
 
 hclust_best = hclust(dist(rbind(dt[unlist(alltree$`193`$pockets_names),sort(colnames(dt))],
                           new_pocket)),
@@ -609,14 +627,15 @@ head(sort(res_d),10)
 ####PLOT DIST ON HCLUST CENTROIDS ####
 library(dendextend)
 library(colorspace)
+library(plotfunctions)
 ###hclust centroids###
 #dt_centers.hclust = hclust(dist(dt.kmean$centers), method = "ward.D2")
 #dendrogram
-dt_centers.dend = as.dendrogram(dt_centers.hclust)
+dt_centers.dend = alltree$cluster_dend[[1]]#as.dendrogram(dt_centers.hclust)
 #change label name
 pock_dist = alltree$Get("dist", filterFun = isLeaf)
 #
-rescale <- function(x) (x-min(x))/(max(x) - min(x)) * 10
+rescale <- function(x) (x-min(x))/(max(x) - min(x)) * 800
 #
 which(pock_dist == min(pock_dist))
 
@@ -625,25 +644,43 @@ lab_cluster_dend = as.integer(labels(dt_centers.dend))
 labels(dt_centers.dend) <- paste0(lab_cluster_dend, 
                                   paste0(";Dist:",
                                          round(pock_dist[as.character(lab_cluster_dend)], 2)))
-labels(dt_centers.dend)[centroid_green] <- paste0("pocketConf0093;",
+labels(dt_centers.dend)[centroid_green] <- paste0("POCHE->;GRP",
                                            paste0(lab_cluster_dend[centroid_green], 
                                            paste0(";Dist:",
                                                    round(min(pock_dist), 2))))
 #change label color
-c_colors = diverging_hsv(11)
-labels_colors(dt_centers.dend) <- c_colors[as.integer(rescale(pock_dist[as.character(lab_cluster_dend)]))+1]
-labels_colors(dt_centers.dend)[centroid_green] = "green"
+color.gradient <- function(x, colors=c("darkgreen","gold","white"), colsteps=100) {
+  return( colorRampPalette(colors) (colsteps) [ findInterval(x, seq(min(x),mean(x), length.out=colsteps)) ] )
+}
+x <- c((1:100)^2, (100:1)^2)
+#plot(pock_dist,col=color.gradient(pock_dist), pch=19,cex=2)
+c_colors = color.gradient(pock_dist)
+
+color.df<-data.frame(COLOR_VALUE=pock_dist, color.name=color.gradient(pock_dist))
+labels_colors(dt_centers.dend) <- as.character(color.df[as.character(order.dendrogram(dt_centers.dend)), "color.name"])
+
 # Open a PDF for plotting; units are inches by default
-pdf("../results/K_Means_comparaison/hclust_centroids_pocketConf0093.pdf", width=40, height=15)
+pdf(paste0(paste0("../results/prediction_validation/hclust_centroids_",pocket_name),".pdf"), width=40, height=15)
 
 # Do some plotting
-par(cex=0.3, mar=c(5, 8, 4, 1))
+par(cex=0.3, mar=c(5, 9, 7, 1))
 plot(dt_centers.dend, type = "rectangle", ylab = "Height", cex.lab = 0.7, cex.main = 8,
-     main = "Distance de ligands pocketConf0093 dans les groupes")
+     main = paste0(paste0("Distance de ligands ",pocket_name)," dans les groupes"))
 
-legend("topright", title = "Disatnce du ligand dans les groupes",
-       legend = paste0("level:", 1:11), 
-       col = c("green", c_colors), pch = 20, pt.cex = 15, cex = 8, bty = "n")
+legend("topright", title = "Distance de la poche aux centroides",
+       legend = c(paste0("max:", round(max(pock_dist),2)),
+                  rep("",3),
+                  paste0("mean:", round(mean(pock_dist),2)),
+                  rep("",4),
+                  paste0("min:", round(min(pock_dist),2))), pt.cex = 15, cex = 8, bty = "n")
+legend("topleft", title = "10 groupes les plus proches:",
+       legend = paste("Groupe", 
+                      paste(names(sort(pock_dist)[1:10]),
+                      paste("| Dist", round(sort(pock_dist)[1:10],2)))),
+       pt.cex = 15, cex = 8, bty = "n")
+
+gradientLegend(valRange=c(-14,14), color=c_colors, pos=c(680,40,730,63), coords=TRUE, 
+               border.col=alpha('gray'), side=4)#pos.num = 3, length=.2, depth=.02)
 # Close the PDF file's associated graphics device (necessary to finalize the output)
 dev.off()
 ####PLOT DIST ON HCLUST PLUS PROCHE ####
@@ -651,39 +688,57 @@ dev.off()
 cluster_dist = alltree$Get("dist", filterFun = isLeaf)
 best_cluster = as.integer(names(which(cluster_dist == min(cluster_dist))))
 #hclust
-dt_centers.hclust = hclust(dist(dt[which(dt.kmean$cluster == best_cluster),]), method = "ward.D2")
+#dt_centers.hclust = hclust(dist(dt[which(dt.kmean$cluster == best_cluster),]), method = "ward.D2")
 #compute dist
-pock_dist = apply(dt[which(dt.kmean$cluster == best_cluster),sort(colnames(dt))],1,
-                  function(x) {dist(rbind(new_pocket,x))})
+pock_dist = apply(dt[unlist(alltree$children[[best_cluster]]$pockets_names),
+                     sort(colnames(dt))],1, function(x) {dist(rbind(new_pocket,x))})
 #dendrogram
-dt_centers.dend = as.dendrogram(dt_centers.hclust)
-#
-rescale <- function(x) (x-min(x))/(max(x) - min(x)) * 10
+dt_centers.dend = alltree$children[[best_cluster]]$cluster_dend[[1]]#as.dendrogram(dt_centers.hclust)
 #
 centroid_green = which(labels(dt_centers.dend) == names(which(pock_dist == min(pock_dist))))
 lab_cluster_dend = labels(dt_centers.dend)
 labels(dt_centers.dend) <- paste0(lab_cluster_dend, 
                                   paste0(";Dist:",
                                          round(pock_dist[lab_cluster_dend], 2)))
-labels(dt_centers.dend)[centroid_green] <- paste0("pocketConf0093;",
+labels(dt_centers.dend)[centroid_green] <- paste0("POCHE->;",
                                                   paste0(lab_cluster_dend[centroid_green], 
                                                          paste0(";Dist:",
                                                                 round(min(pock_dist), 2))))
 #change label color
-c_colors = diverging_hsv(11)
-labels_colors(dt_centers.dend) <- c_colors[as.integer(rescale(pock_dist[as.character(lab_cluster_dend)]))+1]
-labels_colors(dt_centers.dend)[centroid_green] = "green"
+#c_colors = diverging_hsv(11)
+#labels_colors(dt_centers.dend) <- c_colors[as.integer(rescale(pock_dist[as.character(lab_cluster_dend)]))+1]
+#labels_colors(dt_centers.dend)[centroid_green] = "green"
+c_colors = color.gradient(pock_dist)
+color.df<-data.frame(COLOR_VALUE=pock_dist, color.name=color.gradient(pock_dist))
+labels_colors(dt_centers.dend) <- as.character(color.df[lab_cluster_dend, "color.name"])
+
 # Open a PDF for plotting; units are inches by default
-pdf(paste0(paste0("../results/K_Means_comparaison/hclust_centroids_pocketConf0093_grp_",
-                  best_cluster),".pdf"),width=40, height=15)
+pdf(paste0(paste0(paste0(paste0("../results/prediction_validation//hclust_centroids_",
+                         pocket_name),"_grp_"),best_cluster),".pdf"),width=40, height=15)
 
 # Do some plotting
-par(cex=1, mar=c(5, 8, 4, 1))
+par(cex=1, mar=c(13, 9, 5, 5))
 plot(dt_centers.dend, type = "rectangle", ylab = "Height", cex.lab = 2, cex.main = 3,
-     main = paste0("Distance de ligands pocketConf0093 dans le groupes ", best_cluster))
+     main = paste0(paste0("Distance de la poche ",pocket_name),
+                   " dans le groupes ", best_cluster))
 
-legend("topright", title = "Disatnce du ligand dans les groupes",
-       legend = paste0("level:", 1:11), 
-       col = c("green", c_colors), pch = 20, pt.cex = 5, cex = 3, bty = "n")
+#legend("topright", title = "Disatnce du ligand dans les groupes",
+#       legend = paste0("level:", 1:11), 
+#       col = c("green", c_colors), pch = 20, pt.cex = 5, cex = 3, bty = "n")
+legend("right", title = "Distance de la poche",
+       legend = c(paste0("max:", round(max(pock_dist),2)),
+                  rep("",1),
+                  paste0("mean:", round(mean(pock_dist),2)),
+                  rep("",1),
+                  paste0("min:", round(min(pock_dist),2))), pt.cex = 4, cex = 2, bty = "n")
+legend("topleft", title = "10 poches les plus proches:",
+       legend = paste("P:", 
+                      paste(names(sort(pock_dist)[1:10]),
+                            paste("|D", round(sort(pock_dist)[1:10],2)))),
+       pt.cex = 4, cex = 2, bty = "n")
+
+gradientLegend(valRange=c(-14,14), color=color.gradient(sort(pock_dist)), 
+               border.col=alpha('gray'), side=4, pos.num = 3, inside = FALSE, length=.2, depth=.02)#pos=c(120,3.5,125,5.5),
 # Close the PDF file's associated graphics device (necessary to finalize the output)
 dev.off()
+
