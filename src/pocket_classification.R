@@ -35,8 +35,8 @@ processFile = function(filepath, dt, fileConn) {
       print("------------YES------------")
       i=i+1
       print(i)
-      cat(paste(line_split, collapse =";"), file = "../data/FPCount_save_all_inter_dt12_bis.txt",append=TRUE)
-      cat("\n",file = "../data/FPCount_save_all_inter_dt12_bis.txt",append=TRUE)
+      cat(paste(line_split, collapse =";"), file = "../data/FPCount_save_all_inter_dt72.txt",append=TRUE)
+      cat("\n",file = "../data/FPCount_save_all_inter_dt72.txt",append=TRUE)
 
     }
   }
@@ -1303,6 +1303,7 @@ table_names_ligand = table(names_ligand)
 which(table_names_ligand >= 100)
 
 plot(sort(table_names_ligand))
+plot(table_names_ligand,xlab = NULL)
 
 hist(sort(table_names_ligand))
 
@@ -1379,7 +1380,9 @@ for (i in 1:length(names_ligand_unique)){
     dist_pock = NULL
     for (j in 1:(length(index)-1)) {
       for (k in (j+1):length(index)) {
-        if(sapply(strsplit(rownames(dt)[index[j]], "_"), "[", 1) == sapply(strsplit(rownames(dt)[index[k]], "_"), "[", 1)) { #CHANGE TO != FOR DIFFERENT POCKETS
+        if(sapply(strsplit(rownames(dt)[index[j]], "_"), "[", 1) != sapply(strsplit(rownames(dt)[index[k]], "_"), "[", 1)) { #CHANGE TO != FOR DIFFERENT POCKETS
+          print(rownames(dt)[index[j]])
+          print(rownames(dt)[index[k]])
           dist_pock = c(dist_pock, dist(dt[c(index[j],index[k]),]))
           #if(dist(dt[c(index[j],index[k]),]) > 3) {
           #  print(paste(index[j],index[k]))
@@ -1495,9 +1498,38 @@ save(dist_ligs_random, file = "../results/dist_pockets/dist_ligs_random.Rdata")
 load("../results/dist_pockets/dist_ligs_protsame.Rdata")
 load("../results/dist_pockets/dist_ligs_protdiff.Rdata")
 load("../results/dist_pockets/dist_ligs_random.Rdata")
+#euclidean
+load("../results/pharmacophores_results/data/dist_ligs_diff_euclidean.Rdata")
+load("../results/pharmacophores_results/data/dist_ligs_random_euclidean.Rdata")
+#fuzcav n cerisier
+load("../results/pharmacophores_results/data/dist_ligs_diff_fuzcavPerso.Rdata")
+load("../results/pharmacophores_results/data/dist_ligs_random_fuzcavPerso.Rdata")
+#fuzcav paper
+load("../results/pharmacophores_results/data/dist_ligs_diff_fuzcavNormal.Rdata")
+load("../results/pharmacophores_results/data/dist_ligs_random_fuzcavNormal.Rdata")
+#manhattan
+load("../results/pharmacophores_results/data/dist_ligs_diff_manhattan.Rdata")
+load("../results/pharmacophores_results/data/dist_ligs_random_manhattan.Rdata")
 #
-library(sm)
-sm.density.compare(d_random, d_lig)
+#library(sm)
+sm.density.compare(c(dist_ligs_random,
+                     dist_ligs[which(dist_ligs>0)]),
+                   c(rep(1,length(dist_ligs_random)),
+                     rep(2,length(dist_ligs[which(dist_ligs>0)]))
+                    ),
+                   model = "none"
+                   , xlab = "Mean distance bewteen pockets"
+                   , main = "Density plot of the distance between pockets from different ligands linking the same ligand - euclidean distance")
+#
+abline(v=mean(dist_ligs[which(dist_ligs>0)]), col = "green")
+abline(v=mean(dist_ligs_random), col = "red")
+#number
+length(which(dist_ligs[which(dist_ligs>0)] >127))
+
+length(dist_ligs[which(dist_ligs>0)])
+
+mean(dist_ligs[which(dist_ligs>0)])
+mean(dist_ligs_random)
 
 mean(dt[grep("HEM",rownames(dt)),])
 
@@ -2151,12 +2183,10 @@ collapsibleTree(
   width = 800
 )
 #### pharmacophores kmedoids 800 seeds####
-
 dt.kmedoids.ph.800 = read.table("../results/pharmacophores_results/clusters_nseeds800_Deuc.txt", sep = ",")
 
 dt.kmedoids.ph.800[1:nrow(dt.kmedoids.ph.800),]
 which(duplicated(dt.kmedoids.ph.800[1:nrow(dt.kmedoids.ph.800),])==TRUE)
-
 
 dt.kmedoids.ph.800["4AP3_NAP_A_1",]
 which(dt.kmedoids.ph.800[,1] == "4AP3_NAP_A_1")  
@@ -2165,7 +2195,14 @@ dt.kmedoids.ph.800[15120,] = NA
 dt.kmedoids.ph.800 <- dt.kmedoids.ph.800[!duplicated(dt.kmedoids.ph.800[,1]),]
 rownames(dt.kmedoids.ph.800) = dt.kmedoids.ph.800[1:nrow(dt.kmedoids.ph.800),1]
 dt.kmedoids.ph.800[,2] = dt.kmedoids.ph.800[,2]+1
+#
 nrow(dt.kmedoids.ph.800)
+#
+length(intersect(as.character(dt.kmedoids.ph.800$V1), toupper(rownames(dt))))
+lig_name_ph = sapply(strsplit(as.character(dt.kmedoids.ph.800$V1), "_"), "[", 2)
+
+setdiff(unique(names_ligand), unique(lig_name_ph))
+
 #dt.kmedoids.ph.800[,1] = NULL
 dt.kmedoids.ph.800 = as.data.frame(dt.kmedoids.ph.800)
 hem_nbr = NULL
@@ -2228,6 +2265,8 @@ dt_validation = data.frame( row.names = names_ligand_unique_sup1,
 save(dt_validation, file = "../results/prediction_validation/data/dt_validation.Rdata")
 load("../results/prediction_validation/data/dt_validation.Rdata")
 #count number pocket in cluster most representative / sum
+vec_number_list = dt_validation$number
+#
 res = sapply(vec_number_list,max)/sapply(vec_number_list,sum)
 boxplot(res)
 hist(res)
@@ -2236,6 +2275,7 @@ inf_100 = which(sapply(vec_number_list,sum) <100 & sapply(vec_number_list,sum) >
 sup_10 = which(sapply(vec_number_list,sum) >10)
 sup_100 = which(sapply(vec_number_list,sum) >100)
 #
+hist(res)
 hist(res[inf_10])
 length(res[inf_10])
 
@@ -2262,10 +2302,20 @@ barelier_structures[,2] = toupper(barelier_structures[,2])
 identical_structures = read.csv("../data/benchmark/identical_structures.tar/identical_structures/identical_structures/identical_structures.csv", header = FALSE)
 identical_structures[,1] = substr(toupper(identical_structures[,1]),1,4)
 identical_structures[,2] = substr(toupper(identical_structures[,2]),1,4)
+#dataset : review_structures
+review_structures = read.csv("../data/benchmark/review_structures.tar/review_structures/review_structures/review_structures.csv", header = FALSE)
+review_structures[,1] = substr(toupper(review_structures[,1]),1,4)
+review_structures[,2] = substr(toupper(review_structures[,2]),1,4)
+#dataset : kahraman_structures
+kahraman_structures = read.csv("../data/benchmark/kahraman_structures.tar/kahraman_structures/kahraman_structures/kahraman_structures.csv", header = FALSE)
+kahraman_structures[,1] = substr(toupper(kahraman_structures[,1]),1,4)
+kahraman_structures[,2] = substr(toupper(kahraman_structures[,2]),1,4)
 ###
-###
+###dt -- IMPORTANT
 dt_benchmark = barelier_structures
 dt_benchmark = identical_structures
+dt_benchmark = review_structures
+dt_benchmark = kahraman_structures
 ###
 y_true = rep(0, nrow(dt_benchmark))
 y_true[which(dt_benchmark$V3 == "active")] = 1
@@ -2305,6 +2355,172 @@ dt_in_1 = which(is.element(dt_benchmark[,1], names_prot) == TRUE)
 dt_in_2 = which(is.element(dt_benchmark[,2], names_prot) == TRUE)
 length(intersect(dt_in_1,dt_in_2))
 ###WITH POCKET DESCRIPTORS###
+#load data
+#review
+dt_review_structures = read.table("../data/benchmark/review_structures.tar/review_structures/review_structures/data_review_structures.txt", header = TRUE, row.names = 1, sep = "\t")
+dt_benchmark = review_structures##to load before
+#kahraman
+dt_kahraman_structures = read.table("../data/benchmark/kahraman_structures.tar/kahraman_structures/kahraman_structures/data_kahraman_structures.txt", header = TRUE, row.names = 1, sep = "\t")
+dt_benchmark = kahraman_structures##to load before
+##dt -- IMPORTANT
+dt_structures = dt_review_structures
+dt_structures = dt_kahraman_structures
+#
+nrow(dt_structures)
+nrow(dt_benchmark)
+#dt 12
+colnames(dt_structures)
+dt_structures[,colnames(dt)]
+#scale dt
+scaled_center_dt_t = read.table(file = "../results/scaled:center_dt12clean.Rdata", col.names = F, row.names = 1)
+scaled_scale_dt_t = read.table(file = "../results/scaled:scale_dt12clean.Rdata", col.names = F, row.names = 1)
+scaled_center_dt = scaled_center_dt_t[,1]
+names(scaled_center_dt) = rownames(scaled_center_dt_t)
+scaled_scale_dt = scaled_scale_dt_t[,1]
+#names(scaled_scale_dt) = rownames(scaled_scale_dt_t)
+#
+dt_structures_scale = scale(dt_structures[,colnames(dt)], 
+                            scaled_center_dt, 
+                            scaled_scale_dt)
+#
+#names prot
+names_prot_structures = sapply(strsplit(rownames(dt_structures_scale), "_"), "[", 1)
+#achange name to ease analysis
+rownames(dt_structures_scale) = names_prot_structures
+#
+
+dt_structures_scale[which(as.character(dt_benchmark$V1) != 
+                  as.character(dt_benchmark$V2) &
+                  as.character(dt_benchmark$V3) == "active"),]
 
 
+as.character()
+#
+which(dt_structures_scale == "1CQQ")
+which(dt_structures_scale == "1UK4")
+dist(dt_structures_scale[c("1CQQ","1UK4"),])
+dist(dt_structures_scale[c(29,237),])
+dist(rbind(dt_structures_scale[c(29),],dt_structures_scale[c(237),]))
+##compute distance according review data
+#for same binding site
+dist_same = NULL
+for (i in which(dt_benchmark$V3 == "active")) {
+  if(is.element(dt_benchmark[i,1], names_prot_structures) &
+     is.element(dt_benchmark[i,2], names_prot_structures) ) {
+    dist_same = c(dist_same,dist(rbind(dt_structures_scale[dt_benchmark[i,1],],
+                                       dt_structures_scale[dt_benchmark[i,2],])))    
+  }
+}
+length(dist_same[which(dist_same > 0)])
+hist(dist_same[which(dist_same > 0)])
+#for different binding site
+dist_diff = NULL
+for (i in which(dt_benchmark$V3 == "inactive")) {
+  if(is.element(dt_benchmark[i,1], names_prot_structures) &
+     is.element(dt_benchmark[i,2], names_prot_structures) ) {
+    dist_diff = c(dist_diff,dist(rbind(dt_structures_scale[dt_benchmark[i,1],],
+                                       dt_structures_scale[dt_benchmark[i,2],])))    
+  }
+}
+length(dist_diff[which(dist_diff > 0)])
+hist(dist_diff[which(dist_diff > 0)])
 
+##density plot
+#library(sm)
+#png("../results/prediction_validation/dist_pocket_prot_12desc_kahraman.png")
+sm.density.compare(c(dist_diff[which(dist_diff>0)],
+                     dist_same[which(dist_same>0)]),
+                   c(
+                     rep(1,length(dist_diff[which(dist_diff>0)])),
+                     rep(2,length(dist_same[which(dist_same>0)]))
+                   ),
+                   model = "none", xlim=c(0,10)
+                   , xlab = "Mean distance bewteen pockets"
+                   , main = "Density plot of the distance between pockets from different ligands linking the same ligand")
+dev.off()
+dist_same
+
+##
+### CALCULE CONFUSION TABLE FOR DATASET centroids
+#try for random
+#dt_benchmark$V3 = as.character(dt_benchmark$V3[sample(1:nrow(dt_benchmark))])
+#
+dt.kmean$centers
+dt_centers.hclust = hclust(dist(dt.kmean$centers), method = "ward.D2")
+plot(dt_centers.hclust)
+#
+h=15
+ClusterClass = cutree(dt_centers.hclust, h = h)
+length(unique(ClusterClass))
+sqrt(h/length(unique(ClusterClass)))
+#
+seuil = 0
+for(h in c(0,1,2,3,4,5,10,15)) {
+  ClusterClass = cutree(dt_centers.hclust, h = h)
+  length(unique(ClusterClass))
+  #
+  y_true = NULL
+  y_predict = NULL
+  #
+  for (i in 1:10000){#nrow(dt_benchmark)) {
+    print(i)
+    if(is.element(dt_benchmark[i,1], names_prot_structures) &
+       is.element(dt_benchmark[i,2], names_prot_structures) & 
+       dt_benchmark[i,1] != dt_benchmark[i,2]) {
+      if(dt_benchmark[i,3] == "active") {
+        y_true = c(y_true,1)
+      } else {
+        y_true = c(y_true,0)
+      }
+      dist_pock1 = apply(dt.kmean$centers,1,
+                         function(x) {dist(rbind(x,dt_structures_scale[dt_benchmark[i,1],]))})
+      dist_pock2 = apply(dt.kmean$centers,1,
+                         function(x) {dist(rbind(x,dt_structures_scale[dt_benchmark[i,2],]))})
+      cluster_pock1 = which(dist_pock1 == min(dist_pock1))
+      cluster_pock2 = which(dist_pock2 == min(dist_pock2))
+      if(ClusterClass[cluster_pock1] == ClusterClass[cluster_pock2]) {
+        y_predict = c(y_predict,1)
+      } else {
+        y_predict = c(y_predict,0)
+      }
+    }
+  }
+  save(y_true, file = paste0(paste0("../results/prediction_validation/data/y_true_review_10000_h",h),".Rdata"))
+  save(y_predict, file = paste0(paste0("../results/prediction_validation/data/y_predict_review_10000_h",h),".Rdata"))
+}
+#
+h=1
+load(paste0(paste0("../results/prediction_validation/data/y_true_review_10000_h",h),".Rdata"))
+load(paste0(paste0("../results/prediction_validation/data/y_predict_review_10000_h",h),".Rdata"))
+#
+TableTot = table(y_predict, y_true)
+TP = TableTot[2,2] 
+FP = TableTot[2,1]
+FN = TableTot[1,2]
+TN = TableTot[1,1] 
+#
+ACC = (TP+TN)/(FP+FN+TP+TN)
+TPV = TP/(TP+FP)
+TNR = TN/(TN+FP)
+TPR = TP/(TP+FN)
+FPR = FP/(FP+TN)
+#
+#MCC = ((TP*TN)-(FP*FN))/sqrt((TP+FP)*(TP+FN)*(TN+FP)*(TN+FN))
+#
+ACC
+TPV
+TNR
+TPR
+FPR
+#
+#library(mltools)
+mcc(preds = y_predict, actuals = y_true)
+MCC
+#
+plot(c(0,FPR,1),c(0,TPR,1), type = "l",col = "red")
+points(c(0,0.113,1),c(0,0.016,1), type = "l")
+
+#
+length(which(dt_benchmark$V3  == "active" & dt_benchmark$V1 != dt_benchmark$V2))
+length(which(dt_benchmark$V3 == "inactive" & dt_benchmark$V1 != dt_benchmark$V2))
+y_true[55]
