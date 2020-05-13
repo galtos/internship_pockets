@@ -98,11 +98,15 @@ names_prot = sapply(strsplit(rownames(dt), "_"), "[", 1)
 names_ligand = sapply(strsplit(rownames(dt), "_"), "[", 2)
 #
 length(unique(names_ligand))
+length(unique(names_prot))
 ### INTERSECT PHARMACOPHORES ###
-dt_pharmacophores = read.table("../data/FPCount_save_all_inter_dt72.txt", 
-                               sep = ";", row.names = 1, colClasses = c(rep("charachter", 1), rep("NULL", 6)))
-dt_pharmacophores[,1:20]
-
+#dt_pharmacophores = read.table("../data/FPCount_save_all_inter_dt72.txt",sep = ";", row.names = 1)
+load("../data/intersect_dt72_pharmacophores.Rdata")
+dt = dt[intersect_dt72_pharmacophores,]
+#again
+names_prot = sapply(strsplit(rownames(dt), "_"), "[", 1)
+names_ligand = sapply(strsplit(rownames(dt), "_"), "[", 2)
+#
 ###########################################
 descriptors_hydrophobicity =  c(
                                 "p_hydrophobic_residues",
@@ -222,7 +226,7 @@ dist_lig_sameP_sameL = function(dt, names_ligand) {
   }
   data_samePsameL = as.data.frame(data_samePsameL)
   colnames(data_samePsameL) = c("name_pock1","name_pock2")
-  write.csv(data_samePsameL, "../data/data_structure_comparaison/data_samePsameL.csv")
+  write.csv(data_samePsameL, "../data/data_structure_comparaison/data_samePsameL_dt72_pharmacophores.csv")
   #save(dist_features_pock_all, file = "../results/protocol_features/dist_features_sameP_sameL_pock.Rdata")
   #save(dist_features, file = "../results/protocol_features/dist_features_sameP_sameL.Rdata")
   return(dist_ligs)
@@ -273,7 +277,7 @@ dist_lig_diffP_sameL = function(dt, names_ligand) {
   }
   data_diffPsameL = as.data.frame(data_diffPsameL)
   colnames(data_diffPsameL) = c("name_pock1","name_pock2")
-  write.csv(data_diffPsameL, "../data/data_structure_comparaison/data_diffPsameL.csv")
+  write.csv(data_diffPsameL, "../data/data_structure_comparaison/data_diffPsameL_dt72_pharmacophores.csv")
   #save(dist_features_pock_all, file = "../results/protocol_features/dist_features_diffP_sameL_pock.Rdata")
   #save(dist_features, file = "../results/protocol_features/dist_features_diffP_sameL.Rdata")
   return(dist_ligs)
@@ -299,7 +303,7 @@ dist_lig_diffP_diffL = function(dt, names_ligand, n = 5000) {
   }
   data_diffPdiffL = as.data.frame(data_diffPdiffL)
   colnames(data_diffPdiffL) = c("name_pock1","name_pock2")
-  write.csv(data_diffPdiffL, "../data/data_structure_comparaison/data_diffPdiffL.csv")
+  write.csv(data_diffPdiffL, "../data/data_structure_comparaison/data_diffPdiffL_dt72_pharmacophores_50000.csv")
   #dist_features_pock_all = rbind(dist_features_pock_all,dist_features)
   #save(dist_features_pock_all, file = "../results/protocol_features/dist_features_diffP_diffL_pock.Rdata")
   #save(dist_features, file = "../results/protocol_features/dist_features_diffP_diffL.Rdata")
@@ -337,6 +341,7 @@ plot_distance = function(dt, names_ligand, features_name) {
 #############################################################
 #save distance
 nrow(dt)
+features_12 = colnames(dt_12descriptors)
 features_random_forest = c(
             "SURFACE_HULL",
             "VOLUME_HULL",
@@ -658,14 +663,6 @@ load("../results/protocol_features/features_selection_interet_cor9_radiushull/di
 #
 ##SCALE
 range01 <- function(x){(x-min(x))/(max(x)-min(x))}
-#
-min(c(dist_lig_sameP_sameL[which(dist_lig_sameP_sameL>0)],
-      dist_lig_diffP_sameL[which(dist_lig_diffP_sameL>0)],
-      dist_lig_diffP_diffL))
-max(c(dist_lig_sameP_sameL,dist_lig_diffP_sameL,dist_lig_diffP_diffL))
-#
-dist_lig_diffP_sameL = dist_ligs[which(dist_ligs > 0)]
-dist_lig_diffP_diffL = dist_ligs_random
 # AUC  diffLdiffP vs sameLsameP
 y_true = c(rep(0,length(dist_lig_sameP_sameL[which(dist_lig_sameP_sameL>0)])),
            rep(1,length(dist_lig_diffP_diffL)))
@@ -757,5 +754,682 @@ findCorrelation(abs(cor(dt[,c(descriptors_hydrophobicity,
                             descriptors_aromatic,
                             descriptors_polarity,
                             descriptors_physicochemical)])), cutoff = 0.9, verbose = T, names = T)
+### DISTANCE AVEC DATASET ###
+data_samePsameL_dt72_pharmacophores = read.csv("../data/data_structure_comparaison/data_samePsameL.csv")
+data_diffPsameL_dt72_pharmacophores = read.csv("../data/data_structure_comparaison/data_diffPsameL.csv")
+data_diffPdiffL_dt72_pharmacophores = read.csv("../data/data_structure_comparaison/data_diffPdiffL.csv")
+#
+data_samePsameL_dt72_pharmacophores = read.csv("../data/data_structure_comparaison/data_samePsameL_dt72_pharmacophores.csv", colClasses = "character")
+data_diffPsameL_dt72_pharmacophores = read.csv("../data/data_structure_comparaison/data_diffPsameL_dt72_pharmacophores.csv", colClasses = "character")
+data_diffPdiffL_dt72_pharmacophores = read.csv("../data/data_structure_comparaison/data_diffPdiffL_dt72_pharmacophores.csv", colClasses = "character")
+data_samePsameL_dt72_pharmacophores$name_pock1
+#
+features_selection_interet_cor9 = c(
+  "SURFACE_HULL",
+  "VOLUME_HULL",
+  "C_RESIDUES",
+  "hydrophobic_kyte",
+  "SMALLEST_SIZE",
+  "X._ATOM_CONVEXE",
+  "p_aliphatic_residues",
+  "p_main_chain_atom",
+  "p_side_chain_atom",
+  "p_polar_residues",
+  "p_aromatic_residues",
+  "p_Car_atom",
+  "p_hydrophobic_residues",
+  "p_hyd_atom"
+)
+#
+features = c("RADIUS_HULL",features_selection_interet_cor9)
+features = c(descriptors_hydrophobicity,
+              descriptors_aromatic,
+              descriptors_polarity,
+              descriptors_physicochemical,
+              descriptors_geometrical)
+length(features)
+features = features_best_geometrique
+features = c("SURFACE_HULL","SMALLEST_SIZE","VOLUME_HULL","X._ATOM_CONVEXE","C_RESIDUES","RADIUS_HULL")
+features = c(  "SURFACE_HULL",
+               "VOLUME_HULL",
+               "C_RESIDUES",
+               "hydrophobic_kyte",
+               "SMALLEST_SIZE",
+               "X._ATOM_CONVEXE")
+
+features = features_best_physicochimique
+features = features_selection_interet
+features = features_12
+##samePsameL
+dist_lig_sameP_sameL = NULL
+for (i in 1:nrow(data_samePsameL_dt72_pharmacophores)) {
+  print(i)
+  dist_lig_sameP_sameL = c(dist_lig_sameP_sameL,
+                           dist(rbind(dt[data_samePsameL_dt72_pharmacophores[i,"name_pock1"],features],
+                                      dt[data_samePsameL_dt72_pharmacophores[i,"name_pock2"],features])))
+}
+names(dist_lig_sameP_sameL) = sapply(strsplit(data_samePsameL_dt72_pharmacophores$name_pock1, "_"), "[", 2)
+which(dist_lig_sameP_sameL == 0)
+length(which(dist_lig_sameP_sameL == 0))
+##diffPsameL
+dist_lig_diffP_sameL = NULL
+for (i in 1:nrow(data_diffPsameL_dt72_pharmacophores)) {
+  print(i)
+  dist_lig_diffP_sameL = c(dist_lig_diffP_sameL,
+                           dist(rbind(dt[data_diffPsameL_dt72_pharmacophores[i,"name_pock1"],features],
+                                      dt[data_diffPsameL_dt72_pharmacophores[i,"name_pock2"],features])))
+}
+names(dist_lig_diffP_sameL) = sapply(strsplit(data_diffPsameL_dt72_pharmacophores$name_pock1, "_"), "[", 2)
+dist_lig_diffP_sameL
+mean(dist_lig_diffP_sameL)
+##diffPdiffL
+dist_lig_diffP_diffL = NULL
+for (i in 1:nrow(data_diffPdiffL_dt72_pharmacophores)) {
+  print(i)
+  dist_lig_diffP_diffL = c(dist_lig_diffP_diffL,
+                           dist(rbind(dt[data_diffPdiffL_dt72_pharmacophores[i,"name_pock1"],features],
+                                      dt[data_diffPdiffL_dt72_pharmacophores[i,"name_pock2"],features])))
+}
+dist_lig_diffP_diffL
+
+mean(dist_lig_diffP_diffL)
+#### distance sans biais en faisant la moyenne ####
+#samePsameL
+dist_lig_sameP_sameL_mean = rep(0,length(unique(names(dist_lig_sameP_sameL))))
+names(dist_lig_sameP_sameL_mean) = unique(names(dist_lig_sameP_sameL))
+
+for (name_lig in unique(names(dist_lig_sameP_sameL))) {
+  #print(dist_lig_sameP_sameL[which(names(dist_lig_sameP_sameL) == name_lig)])
+  dist_lig_sameP_sameL_mean[name_lig] = mean(dist_lig_sameP_sameL[which(names(dist_lig_sameP_sameL) == name_lig)])
+}
+boxplot(dist_lig_sameP_sameL_mean)
+#diffPsameL
+dist_lig_diffP_sameL_mean = rep(0,length(unique(names(dist_lig_diffP_sameL))))
+names(dist_lig_diffP_sameL_mean) = unique(names(dist_lig_diffP_sameL))
+
+for (name_lig in unique(names(dist_lig_diffP_sameL))) {
+  #print(dist_lig_diffP_sameL[which(names(dist_lig_diffP_sameL) == name_lig)])
+  dist_lig_diffP_sameL_mean[name_lig] = mean(dist_lig_diffP_sameL[which(names(dist_lig_diffP_sameL) == name_lig)])
+}
+boxplot(dist_lig_diffP_sameL_mean)
+
+#
+dist_lig_sameP_sameL = dist_lig_sameP_sameL_mean
+dist_lig_diffP_sameL = dist_lig_diffP_sameL_mean
+dist_lig_diffP_diffL = dist_lig_diffP_diffL
+#
+### resultat distance pharmacophores ###
+#euclidean
+load("../results/pharmacophores_results/data/dist_data_intersect72/dist_lig_sameP_sameL_euclidean.Rdata")
+load("../results/pharmacophores_results/data/dist_data_intersect72/dist_lig_diffP_sameL_euclidean.Rdata")
+load("../results/pharmacophores_results/data/dist_data_intersect72/dist_lig_diffP_diffL_euclidean.Rdata")
+#manhattan
+load("../results/pharmacophores_results/data/dist_data_intersect72/dist_lig_sameP_sameL_manhattan.Rdata")
+load("../results/pharmacophores_results/data/dist_data_intersect72/dist_lig_diffP_sameL_manhattan.Rdata")
+load("../results/pharmacophores_results/data/dist_data_intersect72/dist_lig_diffP_diffL_manhattan.Rdata")
+#fuzcav ncerisier
+load("../results/pharmacophores_results/data/dist_data_intersect72/dist_lig_sameP_sameL_fuzcavPerso.Rdata")
+load("../results/pharmacophores_results/data/dist_data_intersect72/dist_lig_diffP_sameL_fuzcavPerso.Rdata")
+load("../results/pharmacophores_results/data/dist_data_intersect72/dist_lig_diffP_diffL_fuzcavPerso.Rdata")
+#fuzcav vrai
+load("../results/pharmacophores_results/data/dist_data_intersect72/dist_lig_sameP_sameL_fuzcaVrai.Rdata")
+load("../results/pharmacophores_results/data/dist_data_intersect72/dist_lig_diffP_sameL_fuzcaVrai.Rdata")
+load("../results/pharmacophores_results/data/dist_data_intersect72/dist_lig_diffP_diffL_fuzcaVrai.Rdata")
+#
+names(dist_lig_sameP_sameL) = sapply(strsplit(data_samePsameL_dt72_pharmacophores$name_pock1, "_"), "[", 2)
+names(dist_lig_diffP_sameL) = sapply(strsplit(data_diffPsameL_dt72_pharmacophores$name_pock1, "_"), "[", 2)
+#
+length(which(dist_lig_sameP_sameL == 0))
+###ROC CURVE ###
+##SCALE
+range01 <- function(x,min_scale,max_scale){(x-min_scale)/(max_scale-min_scale)}
+#
+min_scale = min(c(dist_lig_sameP_sameL,dist_lig_diffP_sameL,dist_lig_diffP_diffL))
+max_scale = max(c(dist_lig_sameP_sameL,dist_lig_diffP_sameL,dist_lig_diffP_diffL))
+# AUC  diffLdiffP vs sameLsameP
+y_true = c(rep(0,length(dist_lig_sameP_sameL)),
+           rep(1,length(dist_lig_diffP_diffL)))
+y_predict = c(range01(dist_lig_sameP_sameL,min_scale,max_scale),
+              range01(dist_lig_diffP_diffL,min_scale,max_scale))
+#AUC diffLdiffP vs sameLdiffP
+y_true = c(rep(0,length(dist_lig_diffP_sameL)),
+           rep(1,length(dist_lig_diffP_diffL)))
+y_predict = c(range01(dist_lig_diffP_sameL,min_scale,max_scale),
+              range01(dist_lig_diffP_diffL,min_scale,max_scale))
+#AUC  diffLdiffP vs (sameLsameP|sameLdiffP)
+y_true = c(rep(0,length(dist_lig_sameP_sameL)+
+                 length(dist_lig_diffP_sameL)),
+           rep(1,length(dist_lig_diffP_diffL)))
+y_predict = c(range01(dist_lig_sameP_sameL,min_scale,max_scale),
+              range01(dist_lig_diffP_sameL,min_scale,max_scale),
+              range01(dist_lig_diffP_diffL,min_scale,max_scale))
+#library(ROCR)
+dt.pred = prediction(y_predict, y_true_test) #y_predict[-Index]#1-y_predict#y_true_test#y_predict[,2]
+dt.perf = performance(dt.pred, "tpr", "fpr")
+plot(dt.perf)
+dt.auc = performance(dt.pred, "auc")
+attr(dt.auc, "y.values")
+#
+#plot
+sm.density.compare(c(range01(dist_lig_diffP_diffL,min_scale,max_scale),
+                     range01(dist_lig_sameP_sameL,min_scale,max_scale),
+                     range01(dist_lig_diffP_sameL,min_scale,max_scale)),
+                   c(rep(1,length(dist_lig_diffP_diffL)),
+                     rep(2,length(dist_lig_sameP_sameL)),
+                     rep(3,length(dist_lig_diffP_sameL))
+                   ),
+                   model = "none",xlim=c(0,1)
+                   , xlab = "Mean distance bewteen pockets")
+sm.density.compare(c(dist_lig_diffP_diffL,
+                     dist_lig_sameP_sameL,
+                     dist_lig_diffP_sameL),
+                   c(rep(1,length(dist_lig_diffP_diffL)),
+                     rep(2,length(dist_lig_sameP_sameL)),
+                     rep(3,length(dist_lig_diffP_sameL))
+                   ),
+                   model = "none"
+                   , xlab = "Mean distance bewteen pockets")
+
+### distance euclideanne + distance fuzcav ###
+dist_lig_sameP_sameL_desc = range01(dist_lig_sameP_sameL,min_scale,max_scale)
+dist_lig_diffP_sameL_desc = range01(dist_lig_diffP_sameL,min_scale,max_scale)
+dist_lig_diffP_diffL_desc = range01(dist_lig_diffP_diffL,min_scale,max_scale)
+#
+dist_lig_sameP_sameL_desc_fuzcav = range01(dist_lig_sameP_sameL,min_scale,max_scale) #1-
+dist_lig_diffP_sameL_desc_fuzcav = range01(dist_lig_diffP_sameL,min_scale,max_scale)
+dist_lig_diffP_diffL_desc_fuzcav = range01(dist_lig_diffP_diffL,min_scale,max_scale)
+#additionner les deux
+dist_lig_sameP_sameL = dist_lig_sameP_sameL_desc + dist_lig_sameP_sameL_desc_fuzcav
+dist_lig_diffP_sameL = dist_lig_diffP_sameL_desc + dist_lig_diffP_sameL_desc_fuzcav
+dist_lig_diffP_diffL = dist_lig_diffP_diffL_desc + dist_lig_diffP_diffL_desc_fuzcav
+
+### linear regression on difference between descriptors ###
+dt_pock_samePsameL = dt[data_samePsameL_dt72_pharmacophores[,"name_pock1"],features] - dt[data_samePsameL_dt72_pharmacophores[,"name_pock2"],features]
+dt_pock_diffPsameL = dt[data_diffPsameL_dt72_pharmacophores[,"name_pock1"],features] - dt[data_diffPsameL_dt72_pharmacophores[,"name_pock2"],features]
+dt_pock_diffPdiffL = dt[data_diffPdiffL_dt72_pharmacophores[,"name_pock1"],features] - dt[data_diffPdiffL_dt72_pharmacophores[,"name_pock2"],features]
+
+y_true = c(rep(1,nrow(dt_pock_samePsameL)),
+           rep(1,nrow(dt_pock_diffPsameL)),
+           rep(0,nrow(dt_pock_diffPdiffL)))  
+dt_pock = rbind(dt_pock_samePsameL,
+                rbind(dt_pock_diffPsameL,
+                      dt_pock_diffPdiffL))
+
+dt_pock = cbind(abs(dt_pock),y_true)
+dt_pock = as.data.frame(dt_pock)
+similarity.modele = glm(y_true~.,data = dt_pock, family = "binomial")
+
+attributes(similarity.modele)
+
+summary(similarity.modele)
+similarity.modele.step = step(similarity.modele, direction = "both")
+summary(similarity.modele.step)
+
+y_predict = predict.glm(similarity.modele.step, newdata=dt_pock[,features],type = "response" )
+which(y_predict == 0)
+mean(y_predict)
+boxplot(y_predict)
+#y_predict = range01(y_predict,min(y_predict),max(y_predict))
+## PLOT pharmacophhore / descripteur
+plot(dist_lig_sameP_sameL_desc, 1-dist_lig_sameP_sameL_desc_fuzcav,xlim = c(0,1),ylim = c(0,1))
+cor(dist_lig_sameP_sameL_desc, 1-dist_lig_sameP_sameL_desc_fuzcav)
+### check nombre total interaction dataset
+names_ligand
+table_names_ligand = table(names_ligand)
+N_inter = 0
+for (i in 1:length(table_names_ligand)) {
+  if(table_names_ligand[i] > 1) {
+    N_inter = N_inter + (table_names_ligand[i]*table_names_ligand[i])/2 -(table_names_ligand[i]/2)
+  }
+}
+max(table_names_ligand)
+
+#### PREDICTION ####
+features = c(descriptors_hydrophobicity,
+             descriptors_aromatic,
+             descriptors_polarity,
+             descriptors_physicochemical,
+             descriptors_geometrical)
+features = c("SURFACE_HULL","hydrophobic_kyte")
+features = descriptors_geometrical
+features = c(descriptors_hydrophobicity,
+             descriptors_aromatic,
+             descriptors_polarity,
+             descriptors_physicochemical)
+features = features_selection_interet_cor9
+colnames(dt[,35:54])
+features = c(features,"A","C","E","D","G","F","I","H","K","M","L","N","Q","P","S","R","T","W","V","Y")
+#
+#data_diffPdiffL_dt72_pharmacophores = read.csv("../data/data_structure_comparaison/data_diffPdiffL_dt72_pharmacophores_50000.csv", colClasses = "character")
+data_diffPdiffL_dt72_pharmacophores = read.csv("../data/data_structure_comparaison/data_diffPdiffL_dt72_pharmacophores.csv", colClasses = "character")
+#data_prediction
+dt_pock_samePsameL = sqrt((dt[data_samePsameL_dt72_pharmacophores[,"name_pock1"],features] - dt[data_samePsameL_dt72_pharmacophores[,"name_pock2"],features])**2)
+names(dt_pock_samePsameL) = sapply(strsplit(data_samePsameL_dt72_pharmacophores$name_pock1, "_"), "[", 2)
+dt_pock_diffPsameL = sqrt((dt[data_diffPsameL_dt72_pharmacophores[,"name_pock1"],features] - dt[data_diffPsameL_dt72_pharmacophores[,"name_pock2"],features])**2)
+names(dt_pock_diffPsameL) = sapply(strsplit(data_diffPsameL_dt72_pharmacophores$name_pock1, "_"), "[", 2)
+dt_pock_diffPdiffL = sqrt((dt[data_diffPdiffL_dt72_pharmacophores[,"name_pock1"],features] - dt[data_diffPdiffL_dt72_pharmacophores[,"name_pock2"],features])**2)
+# MEAN
+#### distance sans biais en faisant la moyenne ####
+#samePsameL
+dist_lig_sameP_sameL_mean = NULL
+unique_names_dist_lig_sameP_sameL = unique(names(dt_pock_samePsameL))
+for (name_lig in 1:length(unique_names_dist_lig_sameP_sameL)) {
+  samePsameL_pock = which(names(dt_pock_samePsameL) == unique_names_dist_lig_sameP_sameL[name_lig])
+  if(length(samePsameL_pock) > 1) {
+    dist_lig_sameP_sameL_mean= rbind(dist_lig_sameP_sameL_mean, apply(dt_pock_samePsameL[samePsameL_pock,],2,mean))
+  } else {
+    dist_lig_sameP_sameL_mean= rbind(dist_lig_sameP_sameL_mean, dt_pock_samePsameL[samePsameL_pock,])
+  }
+}
+names(dist_lig_sameP_sameL_mean) = unique_names_dist_lig_sameP_sameL
+#diffPsameL
+dist_lig_diffP_sameL_mean = NULL
+unique_names_dist_lig_diffP_sameL = unique(names(dt_pock_diffPsameL))
+for (name_lig in 1:length(unique_names_dist_lig_diffP_sameL)) {
+  diffPsameL_pock = which(names(dt_pock_diffPsameL) == unique_names_dist_lig_diffP_sameL[name_lig])
+  if(length(diffPsameL_pock) > 1) {
+    dist_lig_diffP_sameL_mean= rbind(dist_lig_diffP_sameL_mean, apply(dt_pock_diffPsameL[diffPsameL_pock,],2,mean))
+  } else {
+    dist_lig_diffP_sameL_mean= rbind(dist_lig_diffP_sameL_mean, dt_pock_diffPsameL[diffPsameL_pock,])
+  }
+}
+names(dist_lig_diffP_sameL_mean) = unique_names_dist_lig_diffP_sameL
+#
+dt_pock_samePsameL = dist_lig_sameP_sameL_mean
+dt_pock_diffPsameL = dist_lig_diffP_sameL_mean
+#data preparation
+dt_predict = rbind(dt_pock_samePsameL,
+             rbind(dt_pock_diffPsameL,
+                   dt_pock_diffPdiffL))
+y_true = c(rep(1,nrow(dt_pock_samePsameL)),
+           rep(1,nrow(dt_pock_diffPsameL)),
+           rep(0,nrow(dt_pock_diffPdiffL))) 
+dt_predict = cbind(abs(dt_predict),y_true)
+dt_predict = as.data.frame(dt_predict)
+dt_predict$y_true = as.factor(dt_predict$y_true)
+##ACP
+dt_predict.apc = PCA(dt_predict, scale.unit = T, quali.sup=49)
+dt_predict.apc$eig
+dt_predict.apc$ind$contrib
+
+sort(dt_predict.apc$var$contrib[,"Dim.1"])
+
+barplot(dt_predict.apc$eig[,2])
+plot(dt_predict.apc)
+#reprÃ©ssentation similar or not
+plot(dt_predict.apc,habillage = 49, col.hab = c("green","blue"), label="none")
+plot(dt_predict.apc,choix = "ind", col.ind = dt_predict$y_true)
+
+### data preparation ###
+set.seed(84)
+Index = sample(1:nrow(dt_predict),size = nrow(dt_predict)*2/3 )
+dt_predict_app = dt_predict[Index,]
+dt_predict_test = dt_predict[-Index,]
+dt_predict_test_samePsameL = dt_predict[-unique(c(Index,nrow(dt_pock_samePsameL):(nrow(dt_pock_samePsameL)+nrow(dt_pock_diffPsameL)))),]
+dt_predict_test_diffPsameL = dt_predict[-unique(c(Index,1:nrow(dt_pock_samePsameL))),]
+#
+y_true_app = y_true[Index]
+y_true_test = y_true[-Index]
+y_true_test_samePsameL = y_true[-unique(c(Index,nrow(dt_pock_samePsameL):(nrow(dt_pock_samePsameL)+nrow(dt_pock_diffPsameL))))]
+y_true_test_diffPsameL = y_true[-unique(c(Index,1:nrow(dt_pock_samePsameL)))]
+
+#### Linear regression#### 
+dt_predict.glm = glm(y_true~.,data = dt_predict_app, family = "binomial")
+attributes(dt_predict.glm)
+summary(dt_predict.glm)
+
+dt_predict.glm.step = step(dt_predict.glm, direction = "both")
+summary(dt_predict.glm.step)
+#
+y_predict = predict.glm(dt_predict.glm.step, newdata=dt_predict_app[,features],type = "response" )
+y_predict = predict.glm(dt_predict.glm.step, newdata=dt_predict_test[,features],type = "response" )
+y_predict = predict.glm(dt_predict.glm.step, newdata=dt_predict_test_samePsameL[,features],type = "response" )
+y_predict = predict.glm(dt_predict.glm.step, newdata=dt_predict_test_diffPsameL[,features],type = "response" )
+#
+perf_auc(y_predict, y_true_app)
+perf_auc(y_predict, y_true_test)
+perf_auc(y_predict, y_true_test_samePsameL)
+perf_auc(y_predict, y_true_test_diffPsameL)
+#
+y_predict[which(y_predict > 0.5)] = 1
+y_predict[which(y_predict < 0.5)] = 0
+glm.table <- table(y_predict, y_true_test)
+Se = glm.table[2,2] / (glm.table[2,2] + glm.table[1,2])
+Sp = glm.table[1,1] / (glm.table[1,1] + glm.table[2,1])
+Se
+Sp
+#
+nrow(dt_predict)
+### log + pharmacophores fuzcav
+y_predict_desc_test = y_predict
+y_predict_desc_samePsameL = y_predict
+y_predict_desc_diffPsameL = y_predict
+#
+y_predict_fuzcav_test = y_predict[-Index]
+y_predict_fuzcav_samePsameL = y_predict[-unique(c(Index,nrow(dt_pock_samePsameL):(nrow(dt_pock_samePsameL)+nrow(dt_pock_diffPsameL))))]
+y_predict_fuzcav_diffPsameL = y_predict[-unique(c(Index,1:nrow(dt_pock_samePsameL)))]
+#
+y_predict = y_predict_desc_test + y_predict_fuzcav_test
+y_predict = y_predict_desc_samePsameL + y_predict_fuzcav_samePsameL
+y_predict = y_predict_desc_diffPsameL + y_predict_fuzcav_diffPsameL
+#
+plot(y_predict_desc_test,y_predict_fuzcav_test)
+plot(y_predict_desc_samePsameL,y_predict_fuzcav_samePsameL)
+plot(y_predict_desc_diffPsameL,y_predict_fuzcav_diffPsameL)
+
+#### CROSS VALIDATION REGRESSION LOGISTIQUE ###
+fct.CV = function(Mat,nbG){
+  ###Mat : matrice a echantillonner
+  ##nbG : nombre de groupe a faire
+  Ech.sample=sample(dim(Mat)[1])
+  vect=ceiling(seq(1,dim(Mat)[1],length=(nbG+1)))
+  
+  echlist=as.list(rep(0,nbG))
+  
+  for(i in 1:length(echlist)){
+    if (i!=nbG){ echlist[[i]]=Ech.sample[vect[i]:((vect[i+1])-1)] }
+    if (i==nbG){ echlist[[i]]=Ech.sample[vect[i]:length(Ech.sample)] }
+  }
+  return (echlist)
+}
+CV.GLM= function(X,nm.cl,iteration, nb.grp){
+  ###iteration : nombre de fois que la CV est rÃ©aliser	
+  ###nb.grp :  nbr de fold pour la CV
+  ###X : matrice de descripteurs 
+  ###nm.cl :  vecteur de classe Ã predire
+  ###Pouc chq CV, on va calculer AUC sur l'ech a predire.
+  ###Ces taux seront stockes dans le vecteur res.tx
+  AUC.tx <- NULL
+  for(it in 1:iteration){
+    perf_ssjeu <- rep(NA, length = nb.grp )
+    ech.list <- fct.CV(Mat = X, nbG = nb.grp)
+    for(i in 1:nb.grp){
+      #choisi les 3 echantillons pour l apprentissage
+      num.ech <- seq(1,nb.grp)[-i]
+      list.mol <- NULL
+      for (ind in num.ech){
+        list.mol <- c(list.mol, ech.list[[ind]])     ###training set
+      }
+      X1 <- X[list.mol,]
+      Y <- as.factor(nm.cl[list.mol])
+      ###creation de la matrice a predire
+      Matpred <- cbind(X1,Y)
+      colnames(Matpred) <- c(colnames(X1), "pred")
+      #calcul du modele
+      modele <- glm(pred ~ ., data = Matpred,family = "binomial")
+      #modele = step(modele, direction = "both")
+      ###creation of validation set
+      new.data <- X[ech.list[[i]],]
+      Ypred <- predict(modele,newdata=new.data, type = "response")
+      Yobs <- nm.cl[ech.list[[i]]]
+      dt.pred = prediction(Ypred, Yobs)
+      dt.auc = performance(dt.pred, "auc")
+      perf_ssjeu[i] <- attr(dt.auc, "y.values")[[1]]
+    }   ###fin de la boucle de cross-validation
+    #compute well-predicted rate for the CV test set
+    AUC.tx = c(AUC.tx,mean(perf_ssjeu))
+  }
+  return(AUC.tx)
+}
+AUC.taux = CV.GLM(dt_predict_app[,-ncol(dt_predict_app)],dt_predict_app$y_true,200,3) #grand nombre de iterations en cross validation 500,1000...
+t.test(AUC.taux)
+summary(dt_predict_app)
+sd(AUC.taux)
+
+#### CART ####
+library(MASS)
+library(rpart)
+library(rpart.plot)
+#MODELE
+dt_predict.cart = rpart(y_true~., data = dt_predict_app,
+                        method = "class",
+                        parms = list(split = 'information'), 
+                        minsplit = 2, 
+                        minbucket = 1,
+                        cp = -1)
+rpart.plot(dt_predict.cart)
+
+plotcp(dt_predict.cart)
+print(dt_predict.cart$cptable[which.min(dt_predict.cart$cptable[,4]),1])
+print(dt_predict.cart)
+summary(dt_predict.cart)
+prp(dt_predict.cart, extra = 2)
+#otp tree
+dt_predict.cart.Tree_Opt <- prune(dt_predict.cart,cp=dt_predict.cart$cptable[which.min(dt_predict.cart$cptable[,4]),1])
+#dt_predict.cart.Tree_Opt <- prune(dt_predict.cart,cp = 0.0072)
+
+plotcp(dt_predict.cart.Tree_Opt)
+rpart.plot(dt_predict.cart.Tree_Opt)
+
+y_predict = predict(dt_predict.cart.Tree_Opt, newdata=dt_predict_test,type = "prob")
+#
+y_predict = predict(dt_predict.cart.Tree_Opt, newdata=dt_predict_app[,features],type = "prob" )
+y_predict = predict(dt_predict.cart.Tree_Opt, newdata=dt_predict_test[,features],type = "prob" )
+y_predict = predict(dt_predict.cart.Tree_Opt, newdata=dt_predict_test_samePsameL[,features],type = "prob" )
+y_predict = predict(dt_predict.cart.Tree_Opt, newdata=dt_predict_test_diffPsameL[,features],type = "prob" )
+#
+perf_auc(y_predict[,2], y_true_app)
+perf_auc(y_predict[,2], y_true_test)
+perf_auc(y_predict[,2], y_true_test_samePsameL)
+perf_auc(y_predict[,2], y_true_test_diffPsameL)
+#
+y_predict[which(y_predict[,2] > 0.5),2] = 1
+y_predict[which(y_predict[,2] < 0.5),2] = 0
+glm.table <- table(y_predict[,2], y_true_test_diffPsameL)
+Se = glm.table[2,2] / (glm.table[2,2] + glm.table[1,2])
+Sp = glm.table[1,1] / (glm.table[1,1] + glm.table[2,1])
+Se
+Sp
+#
+### CART + pharmacophores fuzcav
+y_predict_desc_test = y_predict[,2]
+y_predict_desc_samePsameL = y_predict[,2]
+y_predict_desc_diffPsameL = y_predict[,2]
+#
+y_predict_fuzcav_test = y_predict[-Index]
+y_predict_fuzcav_samePsameL = y_predict[-unique(c(Index,nrow(dt_pock_samePsameL):(nrow(dt_pock_samePsameL)+nrow(dt_pock_diffPsameL))))]
+y_predict_fuzcav_diffPsameL = y_predict[-unique(c(Index,1:nrow(dt_pock_samePsameL)))]
+#
+y_predict = y_predict_desc_test + y_predict_fuzcav_test
+y_predict = y_predict_desc_samePsameL + y_predict_fuzcav_samePsameL
+y_predict = y_predict_desc_diffPsameL + y_predict_fuzcav_diffPsameL
+#
+plot(y_predict_desc_test,y_predict_fuzcav_test)
+plot(y_predict_desc_samePsameL,y_predict_fuzcav_samePsameL)
+plot(y_predict_desc_diffPsameL,y_predict_fuzcav_diffPsameL)
+###Comparaison  avec dist normale
+#### CROSS VALIDATION CART ###
+CV.CART = function(X,nm.cl,iteration, nb.grp){
+  ###iteration : nombre de fois que la CV est rÃ©aliser	
+  ###nb.grp :  nbr de fold pour la CV
+  ###X : matrice de descripteurs 
+  ###nm.cl :  vecteur de classe Ã predire
+  ###Pouc chq CV, on va calculer AUC sur l'ech a predire.
+  ###Ces taux seront stockes dans le vecteur res.tx
+  AUC.tx <- NULL
+  for(it in 1:iteration){
+    perf_ssjeu <- rep(NA, length = nb.grp )
+    ech.list <- fct.CV(Mat = X, nbG = nb.grp)
+    for(i in 1:nb.grp){
+      #choisi les 3 echantillons pour l apprentissage
+      num.ech <- seq(1,nb.grp)[-i]
+      list.mol <- NULL
+      for (ind in num.ech){
+        list.mol <- c(list.mol, ech.list[[ind]])     ###training set
+      }
+      X1 <- X[list.mol,]
+      Y <- as.factor(nm.cl[list.mol])
+      ###creation de la matrice a predire
+      Matpred <- cbind(X1,Y)
+      colnames(Matpred) <- c(colnames(X1), "pred")
+      #calcul du modele
+      modele <- rpart(y_true~., data = dt_predict_app,
+                      method = "class",
+                      parms = list(split = 'information'), 
+                      minsplit = 2, 
+                      minbucket = 1,
+                      cp = -1)
+      modele <- prune(modele,cp=modele$cptable[which.min(modele$cptable[,4]),1])
+      
+      #modele = step(modele, direction = "both")
+      ###creation of validation set
+      new.data <- X[ech.list[[i]],]
+      Ypred <- predict(modele,newdata=new.data, type = "prob")
+      Yobs <- nm.cl[ech.list[[i]]]
+      dt.pred = prediction(Ypred[,2], Yobs)
+      dt.auc = performance(dt.pred, "auc")
+      perf_ssjeu[i] <- attr(dt.auc, "y.values")[[1]]
+    }   ###fin de la boucle de cross-validation
+    #compute well-predicted rate for the CV test set
+    AUC.tx = c(AUC.tx,mean(perf_ssjeu))
+  }
+  return(AUC.tx)
+}
+AUC.taux = CV.CART(dt_predict_app[,-ncol(dt_predict_app)],dt_predict_app$y_true,20,3) #grand nombre de iterations en cross validation 500,1000...
+t.test(AUC.taux)
+summary(dt_predict_app)
+sd(AUC.taux)
+
+#### LDA ####
+dt_predict.lda = lda(y_true~.,data = dt_predict_app)
+dt_predict.lda$prior
+attributes(dt_predict.lda)
+summary(dt_predict.lda)
+
+y_predict = predict(dt_predict.lda, newdata=dt_predict_test[,features],type = "response" )
+
+F = as.matrix(dt_predict_app[,-ncol(dt_predict_app)]) %*% as.matrix(dt_predict.lda$scaling)
+#library(knitr)
+kable(cor(F, dt_predict_app[,-ncol(dt_predict_app)]), digits = 2)
+nrow(dt_predict)
+#
+y_predict = predict(dt_predict.lda, newdata=dt_predict_app[,features],type = "response" )
+y_predict = predict(dt_predict.lda, newdata=dt_predict_test[,features],type = "response" )
+y_predict = predict(dt_predict.lda, newdata=dt_predict_test_samePsameL[,features],type = "response" )
+y_predict = predict(dt_predict.lda, newdata=dt_predict_test_diffPsameL[,features],type = "response" )
+#
+perf_auc(y_predict$x, y_true_app)
+perf_auc(y_predict$x, y_true_test)
+perf_auc(y_predict$x, y_true_test_samePsameL)
+perf_auc(y_predict$x, y_true_test_diffPsameL)
+#
+y_predict$x[which(y_predict$x > 0.5)] = 1
+y_predict$x[which(y_predict$x < 0.5)] = 0
+glm.table <- table(y_predict$x, y_true_test_diffPsameL)
+Se = glm.table[2,2] / (glm.table[2,2] + glm.table[1,2])
+Sp = glm.table[1,1] / (glm.table[1,1] + glm.table[2,1])
+Se
+Sp
+#
+### LDA + pharmacophores fuzcav
+y_predict_desc_test = y_predict$x
+y_predict_desc_samePsameL = y_predict$x
+y_predict_desc_diffPsameL = y_predict$x
+#
+y_predict_fuzcav_test = y_predict[-Index]
+y_predict_fuzcav_samePsameL = y_predict[-unique(c(Index,nrow(dt_pock_samePsameL):(nrow(dt_pock_samePsameL)+nrow(dt_pock_diffPsameL))))]
+y_predict_fuzcav_diffPsameL = y_predict[-unique(c(Index,1:nrow(dt_pock_samePsameL)))]
+#
+y_predict = y_predict_desc_test + y_predict_fuzcav_test
+y_predict = y_predict_desc_samePsameL + y_predict_fuzcav_samePsameL
+y_predict = y_predict_desc_diffPsameL + y_predict_fuzcav_diffPsameL
+#
+plot(y_predict_desc_test,y_predict_fuzcav_test)
+plot(y_predict_desc_samePsameL,y_predict_fuzcav_samePsameL)
+plot(y_predict_desc_diffPsameL,y_predict_fuzcav_diffPsameL)
+#### Random Forest ####
+library(randomForest)
+dt_predict.rf = randomForest(y_true~., data = dt_predict_app, ntree = 200, mtry = 3, importance = T)
+
+plot(dt_predict.rf)
+dt_predict.rf
+attributes(dt_predict.rf)
+
+y_predict = predict(dt_predict.rf, newdata=dt_predict_test[,features],type = "response" )
+table(y_predict,y_true_test)
+#
+y_predict = predict(dt_predict.rf, newdata=dt_predict_app[,features],type = "prob" )
+y_predict = predict(dt_predict.rf, newdata=dt_predict_test[,features],type = "prob" )
+y_predict = predict(dt_predict.rf, newdata=dt_predict_test_samePsameL[,features],type = "prob" )
+y_predict = predict(dt_predict.rf, newdata=dt_predict_test_diffPsameL[,features],type = "prob" )
+#
+perf_auc(y_predict[,2], y_true_app)
+perf_auc(y_predict[,2], y_true_test)
+perf_auc(y_predict[,2], y_true_test_samePsameL)
+perf_auc(y_predict[,2], y_true_test_diffPsameL)
+#
+y_predict[which(y_predict[,2] > 0.5),2] = 1
+y_predict[which(y_predict[,2] <= 0.5),2] = 0
+glm.table <- table(y_predict[,2], y_true_test_diffPsameL)
+Se = glm.table[2,2] / (glm.table[2,2] + glm.table[1,2])
+Sp = glm.table[1,1] / (glm.table[1,1] + glm.table[2,1])
+Se
+Sp
+### rf + pharmacophores fuzcav
+y_predict_desc_test = y_predict[,2]
+y_predict_desc_samePsameL = y_predict[,2]
+y_predict_desc_diffPsameL = y_predict[,2]
+#
+y_predict_fuzcav_test = y_predict[-Index]
+y_predict_fuzcav_samePsameL = y_predict[-unique(c(Index,nrow(dt_pock_samePsameL):(nrow(dt_pock_samePsameL)+nrow(dt_pock_diffPsameL))))]
+y_predict_fuzcav_diffPsameL = y_predict[-unique(c(Index,1:nrow(dt_pock_samePsameL)))]
+#
+y_predict = y_predict_desc_test + y_predict_fuzcav_test
+y_predict = y_predict_desc_samePsameL + y_predict_fuzcav_samePsameL
+y_predict = y_predict_desc_diffPsameL + y_predict_fuzcav_diffPsameL
+#
+plot(y_predict_desc_test,y_predict_fuzcav_test)
+plot(y_predict_desc_samePsameL,y_predict_fuzcav_samePsameL)
+plot(y_predict_desc_diffPsameL,y_predict_fuzcav_diffPsameL)
+#
+nrow(dt_predict_test)
+### Performances ###
+perf_auc = function(y_predict, y_true_test) {
+  dt.pred = prediction(y_predict, y_true_test) #y_predict[-Index]#1-y_predict#y_true_test#y_predict[,2]
+  dt.auc = performance(dt.pred, "auc")
+  print("AUC")
+  print(attr(dt.auc, "y.values"))
+}
+
+##### DENSITY CURVE #####
+
+#reg log
+dist_lig_sameP_sameL = predict(dt_predict.glm.step, newdata=dt_predict[1:nrow(dt_pock_samePsameL),features],type = "response" )
+dist_lig_diffP_sameL = predict(dt_predict.glm.step, newdata=dt_predict[nrow(dt_pock_samePsameL):(nrow(dt_pock_samePsameL)+nrow(dt_pock_diffPsameL)),features],type = "response" )
+dist_lig_diffP_diffL = predict(dt_predict.glm.step, newdata=dt_predict[(nrow(dt_pock_samePsameL)+nrow(dt_pock_diffPsameL)):nrow(dt_predict),features],type = "response" )
+#reg CART
+dist_lig_sameP_sameL = predict(dt_predict.cart.Tree_Opt, newdata=dt_predict[1:nrow(dt_pock_samePsameL),features],type = "prob" )[,2]
+dist_lig_diffP_sameL = predict(dt_predict.cart.Tree_Opt, newdata=dt_predict[nrow(dt_pock_samePsameL):(nrow(dt_pock_samePsameL)+nrow(dt_pock_diffPsameL)),features],type = "prob" )[,2]
+dist_lig_diffP_diffL = predict(dt_predict.cart.Tree_Opt, newdata=dt_predict[(nrow(dt_pock_samePsameL)+nrow(dt_pock_diffPsameL)):nrow(dt_predict),features],type = "prob" )[,2]
+#reg LDA
+dist_lig_sameP_sameL = predict(dt_predict.lda, newdata=dt_predict[1:nrow(dt_pock_samePsameL),features],type = "prob" )$x
+dist_lig_diffP_sameL = predict(dt_predict.lda, newdata=dt_predict[nrow(dt_pock_samePsameL):(nrow(dt_pock_samePsameL)+nrow(dt_pock_diffPsameL)),features],type = "prob" )$x
+dist_lig_diffP_diffL = predict(dt_predict.lda, newdata=dt_predict[(nrow(dt_pock_samePsameL)+nrow(dt_pock_diffPsameL)):nrow(dt_predict),features],type = "prob" )$x
+#reg RF
+dist_lig_sameP_sameL = predict(dt_predict.rf, newdata=dt_predict[1:nrow(dt_pock_samePsameL),features],type = "prob" )[,2]
+dist_lig_diffP_sameL = predict(dt_predict.rf, newdata=dt_predict[nrow(dt_pock_samePsameL):(nrow(dt_pock_samePsameL)+nrow(dt_pock_diffPsameL)),features],type = "prob" )[,2]
+dist_lig_diffP_diffL = predict(dt_predict.rf, newdata=dt_predict[(nrow(dt_pock_samePsameL)+nrow(dt_pock_diffPsameL)):nrow(dt_predict),features],type = "prob" )[,2]
+
+#+pharmacophores
+dist_lig_sameP_sameL = dist_lig_sameP_sameL + y_predict[1:nrow(dt_pock_samePsameL)]
+dist_lig_diffP_sameL = dist_lig_diffP_sameL + y_predict[nrow(dt_pock_samePsameL):(nrow(dt_pock_samePsameL)+nrow(dt_pock_diffPsameL))]
+dist_lig_diffP_diffL = dist_lig_diffP_diffL + y_predict[(nrow(dt_pock_samePsameL)+nrow(dt_pock_diffPsameL)):nrow(dt_predict)]
+##plot
+sm.density.compare(c(dist_lig_diffP_diffL,
+                     dist_lig_sameP_sameL,
+                     dist_lig_diffP_sameL),
+                   c(rep(1,length(dist_lig_diffP_diffL)),
+                     rep(2,length(dist_lig_sameP_sameL)),
+                     rep(3,length(dist_lig_diffP_sameL))
+                   ),
+                   model = "none"
+                   , xlab = "Mean distance bewteen pockets")
+plot(dist_lig_sameP_sameL,y_predict[1:nrow(dt_pock_samePsameL)],
+     ylim = c(0,1))
+plot(dist_lig_diffP_sameL,y_predict[nrow(dt_pock_samePsameL):(nrow(dt_pock_samePsameL)+nrow(dt_pock_diffPsameL))],
+     ylim = c(0,1))
+plot(dist_lig_diffP_diffL,y_predict[(nrow(dt_pock_samePsameL)+nrow(dt_pock_diffPsameL)):nrow(dt_predict)],
+     ylim = c(0,1))
+
 
 

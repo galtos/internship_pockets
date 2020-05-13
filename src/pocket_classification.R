@@ -37,7 +37,7 @@ processFile = function(filepath, dt, fileConn) {
       print(i)
       cat(paste(line_split, collapse =";"), file = "../data/FPCount_save_all_inter_dt72.txt",append=TRUE)
       cat("\n",file = "../data/FPCount_save_all_inter_dt72.txt",append=TRUE)
-
+      
     }
   }
   close(con)
@@ -114,7 +114,7 @@ delete_clean_data = function(dt){
   dt = na.omit(dt)
   minimum_size_pocket = 60
   maximum_size_pocket = 14
-
+  
   inf_60 = which(dt[,"C_RESIDUES"] <= minimum_size_pocket)
   print("number of pockets superior 60:")
   print(nrow(dt)-length(inf_60))
@@ -264,7 +264,7 @@ dt.kmean_1 = kmeans(scale(dt), nbr_k_1, nstart = 10)
 dt.kmean_2 = NULL
 for (i in 1:n_iteration) {
   dt.kmean_2 = c(dt.kmean_2, kmeans(scale(dt[which(dt.kmean_1$cluster == 1),]), nbr_k_2, nstart = 10))
-
+  
 }
 ####Hierarchical Classification Multiple after K-Means####
 dt.hclust_1 = hclust(dist(scale(dt[names(which(dt.kmean$cluster == 1)),])), method = "ward.D2")
@@ -331,7 +331,7 @@ png(filename="../results/res_12desc/hclust_centroids_k20_inertie.png")
 png(filename="../results/res_12desc/hclust_centroids_k10_inertie.png")
 plot(inertie[1:30], type = "s", xlab = "Nombre de classes", ylab = "Inertie")
 points(c(5, 11, 15), inertie[c(5, 11, 15)], col = c("green3", "red3", 
-                                                "blue3"), cex = 2, lwd = 3)
+                                                    "blue3"), cex = 2, lwd = 3)
 dev.off()
 N_classes_selected = 8
 ##K-MEANS nK = selected
@@ -450,10 +450,10 @@ pockets_classification_tree = function(dt,
   #first k mean
   #nbr_k = nrow(dt)*prct_seed # select number of seed : 10% of the size of the data
   #nbr_k = as.integer(nbr_k)
-
+  
   #dt.kmean = kmeans(scale(dt), nbr_k, nstart = nstart)
   #hclust on centroids
-
+  
   #dt_centers.hclust = hclust(dist(scale(dt.kmean$centers)), method = "ward.D2")
   ##
   #TODO:select K optimal
@@ -463,7 +463,7 @@ pockets_classification_tree = function(dt,
   print("here1")
   #dt.kmean = kmeans(dt, centers = nbr_k_optimal, nstart = nstart, iter.max = 200)
   #dt.kmean = kmeans(dt, nbr_k_optimal, nstart = nstart, algorithm="MacQueen", iter.max = 200)
-
+  
   print("here2")
   pockets_cluster = list()
   cluster_dend = list()
@@ -472,7 +472,7 @@ pockets_classification_tree = function(dt,
   for (i in 1:nbr_k_optimal){
     pockets_cluster[[i]] = names(which(dt.kmean$cluster == i))
     cluster_dend[[i]] = as.dendrogram(hclust(dist(dt[which(dt.kmean$cluster == i),]),
-                                      method = "ward.D2"))
+                                             method = "ward.D2"))
     #pharmacophores_consensus_mean_cluster[[i]] = apply(dt_pharmacophores[intersect(rownames(dt_pharmacophores),
     #                                  names(which(dt.kmean$cluster == i))),], 2,
     #                                  function(x) v <- as.integer(mean(x)))
@@ -494,7 +494,7 @@ pockets_classification_tree = function(dt,
                           cluster_dend = I(cluster_dend)
                           #pharmacophores_consensus_mean = I(pharmacophores_consensus_mean_cluster),
                           #pharmacophores_consensus_50 = I(pharmacophores_consensus_50_cluster)
-                          )
+  )
   
   cluster_dt$pathString = paste(path_tree, 1:nbr_k_optimal,sep = "/")
   
@@ -518,7 +518,7 @@ pharmacophores_consensus_50 = apply(dt_pharmacophores[,], 2, function(x) {
   } else {
     return(0)
   }
-  })
+})
 length(which(pharmacophores_consensus_50>= 1))
 length(which(dt_pharmacophores[6,]>= 1))
 
@@ -533,13 +533,13 @@ sum(dt_ph >= 1)
 
 apply(dt_pharmacophores[intersect(rownames(dt_pharmacophores),
                                   names(which(dt.kmean$cluster == 1))),], 2,
-                                  function(x) v <- as.integer(mean(x)))
+      function(x) v <- as.integer(mean(x)))
 length(intersect(rownames(dt_pharmacophores), names(which(dt.kmean$cluster == 1))))
 length(names(which(dt.kmean$cluster == 1)))
 length(intersect(rownames(dt_pharmacophores), rownames(dt_12descriptors)))
 ##
 names_physicochemical = c('p_aliphatic_residues','p_Otyr_atom','p_NE2_atom','p_Nlys_atom','p_Ntrp_atom',
-                      'p_Ooh_atom','p_ND1_atom')
+                          'p_Ooh_atom','p_ND1_atom')
 names_geometrical = c('C_ATOM','RADIUS_CYLINDER','CONVEX.SHAPE_COEFFICIENT','RADIUS_HULL','C_RESIDUES','SURFACE_HULL')
 ####~ workflow works ~####
 #Management dt_72
@@ -579,10 +579,10 @@ for (iter in 1:1) {
   for(i in 1:length(pockets_cluster_names)) {
     if(!is.null(pockets_cluster_names[[i]])) {
       cluster_dt = pockets_classification_tree(
-                                      dt = dt[unlist(pockets_cluster_names[[i]]),],
-                                      nstart = nstart,
-                                      path_tree = list_path_tree[iter_path],
-                                      dt_pharmacophores = dt_pharmacophores)
+        dt = dt[unlist(pockets_cluster_names[[i]]),],
+        nstart = nstart,
+        path_tree = list_path_tree[iter_path],
+        dt_pharmacophores = dt_pharmacophores)
       cluster_infos = rbind(cluster_infos, cluster_dt)
       print("hei")
       print(list_path_tree[iter_path])
@@ -606,15 +606,15 @@ for (iter in 1:1) {
   print(iter)
 }
 cluster_alltree = data.frame(
-                        withinss = NA,
-                        size = NA,
-                        betweenss = NA,
-                        totss = NA,
-                        pockets_names = NA,
-                        cluster_dend = I(list(
-                                       as.dendrogram(hclust(dist(dt.kmean$centers),
-                                                     method = "ward.D2")))),
-                        pathString = "alltree"
+  withinss = NA,
+  size = NA,
+  betweenss = NA,
+  totss = NA,
+  pockets_names = NA,
+  cluster_dend = I(list(
+    as.dendrogram(hclust(dist(dt.kmean$centers),
+                         method = "ward.D2")))),
+  pathString = "alltree"
 )
 cluster_alltree = cbind(cluster_infos[1,1:12],cluster_alltree)
 cluster_alltree[,1:12] = NA
@@ -667,7 +667,7 @@ new_pocket = data.frame(centers.p_polar_residues = alltree$`1`$`1`$centers.p_pol
                         centers.C_RESIDUES = alltree$`1`$`1`$centers.C_RESIDUES,
                         centers.p_aromatic_residues = alltree$`1`$`1`$centers.p_aromatic_residues,
                         centers.p_hydrophobic_residues = alltree$`1`$`1`$centers.p_hydrophobic_residues
-                        )
+)
 #pocket NS1 conf0101_p0
 dt_ns1_conf0101_p0 = read.table("../data/pockets_MD_NS1/pocket_PPE_conf0101_p0.txt", header = T, sep = "\t", row.names = 1, fill=TRUE)
 dt_ns1_conf0101_p0 = dt_ns1_conf0101_p0["pocket1_atm",]
@@ -712,20 +712,20 @@ new_test = scale(new_test, attr(dt, "scaled:center"), attr(dt, "scaled:scale"))
 new_pocket = scale(new_pocket, attr(dt, "scaled:center"), attr(dt, "scaled:scale"))
 
 alltree$Do(function(node) node$dist <- dist(rbind(c(
-                                                    node$centers.p_polar_residues,
-                                                    node$centers.p_Nlys_atom,
-                                                    node$centers.p_aliphatic_residues,
-                                                    node$centers.VOLUME_HULL,
-                                                    node$centers.DIAMETER_HULL,
-                                                    node$centers.p_Ooh_atom,
-                                                    node$centers.hydrophobic_kyte,
-                                                    node$centers.p_Ntrp_atom,
-                                                    node$centers.p_Otyr_atom,
-                                                    node$centers.C_RESIDUES,
-                                                    node$centers.p_aromatic_residues,
-                                                    node$centers.p_hydrophobic_residues
-                                                    ),
-                                                    new_pocket)))
+  node$centers.p_polar_residues,
+  node$centers.p_Nlys_atom,
+  node$centers.p_aliphatic_residues,
+  node$centers.VOLUME_HULL,
+  node$centers.DIAMETER_HULL,
+  node$centers.p_Ooh_atom,
+  node$centers.hydrophobic_kyte,
+  node$centers.p_Ntrp_atom,
+  node$centers.p_Otyr_atom,
+  node$centers.C_RESIDUES,
+  node$centers.p_aromatic_residues,
+  node$centers.p_hydrophobic_residues
+),
+new_pocket)))
 dist(rbind(c(alltree$`1`$`1`$centers.p_polar_residues,
              alltree$`1`$`1`$centers.p_Nlys_atom,
              alltree$`1`$`1`$centers.p_aliphatic_residues,
@@ -738,7 +738,7 @@ dist(rbind(c(alltree$`1`$`1`$centers.p_polar_residues,
              alltree$`1`$`1`$centers.C_RESIDUES,
              alltree$`1`$`1`$centers.p_aromatic_residues,
              alltree$`1`$`1`$centers.p_hydrophobic_residues
-             ),new_pocket))
+),new_pocket))
 
 dist(rbind(1:10,1:10))
 alltree$`1`$`1`$`1`$pockets_names
@@ -976,10 +976,10 @@ n_test = function(node){
   print(node)
   print(node$centers.p_polar_residues)
   if (node$centers.p_polar_residues > 0) { 
-      print(node$centers.p_polar_residues)
-      erturn(1) 
+    print(node$centers.p_polar_residues)
+    erturn(1) 
   } else {
-      return(0)
+    return(0)
   }
 }
 alltree$Do(function(node) {
@@ -1196,7 +1196,7 @@ alltree$Do(function(node) node$sd <- sd(c(
   node$centers.C_RESIDUES,
   node$centers.p_aromatic_residues,
   node$centers.p_hydrophobic_residues
-  )))
+)))
 
 alltree$`1`$`1`$`1`$sd
 
@@ -1317,7 +1317,7 @@ df <- data.frame(
             sum(table_names_ligand[which(table_names_ligand <= 10 & table_names_ligand > 1)])/sum(table_names_ligand),
             sum(table_names_ligand[which(table_names_ligand <= 1000 & table_names_ligand > 10)])/sum(table_names_ligand),
             sum(table_names_ligand[which(table_names_ligand > 1000)])/sum(table_names_ligand)
-            )
+  )
 )
 df <- data.frame(
   group = c("linked to 1 pocket:11718 ligands", "linked to ]1;10] pockets:5208 ligands", "linked to ]10;1000]:690 ligands", "linked to > 1000 pockets:6 ligands"),
@@ -1327,9 +1327,9 @@ df <- data.frame(
             sum(table_names_ligand[which(table_names_ligand > 1000)])
   ),
   size = c(length(table_names_ligand[which(table_names_ligand == 1)]),
-            length(table_names_ligand[which(table_names_ligand <= 10 & table_names_ligand > 1)]),
-            length(table_names_ligand[which(table_names_ligand <= 1000 & table_names_ligand > 10)]),
-            length(table_names_ligand[which(table_names_ligand > 1000)])
+           length(table_names_ligand[which(table_names_ligand <= 10 & table_names_ligand > 1)]),
+           length(table_names_ligand[which(table_names_ligand <= 1000 & table_names_ligand > 10)]),
+           length(table_names_ligand[which(table_names_ligand > 1000)])
   )
 )
 library(ggplot2)
@@ -1340,7 +1340,7 @@ bp<- ggplot(df, aes(x="", y=value, fill=group))+
                 label = c(11718,6,690,5208)), size=5)
 
 bp + theme(legend.text = element_text(colour="black", size=12, 
-                                   face="bold"))
+                                      face="bold"))
 
 
 plot(sort(table_names_ligand), breaks = 4)
@@ -1358,7 +1358,7 @@ which(names_prot == "3AY6")
 alltree$Do(function(node) {
   if(length(grep("_093_",unlist(node$pockets_names))) > 0) {
     print(node$path)
-   print(length(grep("_093_",unlist(node$pockets_names))))
+    print(length(grep("_093_",unlist(node$pockets_names))))
   }
 },filterFun = isLeaf)
 
@@ -1469,7 +1469,7 @@ sm.density.compare(c(dist_ligs_random,
                    c(rep(1,length(dist_ligs_random)),
                      rep(2,length(dist_ligs[which(dist_ligs>0)])),
                      rep(3,length(dist_ligs_protdiff[which(dist_ligs_protdiff>0)]))
-                     ),
+                   ),
                    model = "none", xlim=c(0,10)
                    , xlab = "Mean distance bewteen pockets"
                    , main = "Density plot of the distance between pockets from different ligands linking the same ligand")
@@ -1516,7 +1516,7 @@ sm.density.compare(c(dist_ligs_random,
                      dist_ligs[which(dist_ligs>0)]),
                    c(rep(1,length(dist_ligs_random)),
                      rep(2,length(dist_ligs[which(dist_ligs>0)]))
-                    ),
+                   ),
                    model = "none"
                    , xlab = "Mean distance bewteen pockets"
                    , main = "Density plot of the distance between pockets from different ligands linking the same ligand - euclidean distance")
@@ -1667,10 +1667,10 @@ sourceCpp("C_code/dist_fuzcav.cpp")
 
 cppFunction("bool isOddCpp(int num = 10) {bool result = (num % 2 == 1);return result;}")
 cppFunction("
-double min_cpp (double a , double b){
-  if (a<b) return a;
-  return b;
-}")
+            double min_cpp (double a , double b){
+            if (a<b) return a;
+            return b;
+            }")
 
 
 dist_fuzcav_ph(as.integer(dt_pharmacophores[1,]),as.integer(dt_pharmacophores[2,]))
@@ -1749,12 +1749,12 @@ length(intersect(pdb_names_translocases, names_prot))
 n_poches_translocases = sum(table(names_prot)[intersect(pdb_names_translocases, names_prot)])
 #
 nrow(dt) - sum(n_poches_hydrolases,
-    n_poches_transferases,
-    n_poches_oxidoreductases,
-    n_poches_lyases,
-    n_poches_isomerase,
-    n_poches_ligases,
-    n_poches_translocases)
+               n_poches_transferases,
+               n_poches_oxidoreductases,
+               n_poches_lyases,
+               n_poches_isomerase,
+               n_poches_ligases,
+               n_poches_translocases)
 ### drug bank ligands in dt ###
 names_ligand = sapply(strsplit(rownames(dt), "_"), "[", 2)
 unique_names_ligand = unique(names_ligand)
@@ -1893,7 +1893,7 @@ for (seeds in c(800, 1000)) { #800,1000
   points(dt.kmean$size[which(nbr_unique_lig > 10)], 
          sqrt(dt.kmean$withinss/dt.kmean$size)[which(nbr_unique_lig > 10)], 
          col = "green", pch = nbr_unique_prot_pch[which(nbr_unique_lig > 10)])
-
+  
   #text(dt.kmean$size, sqrt(dt.kmean$withinss/dt.kmean$size), 
   #     labels=paste(paste0("L:",nbr_unique_lig),
   #                  paste0("P:",nbr_unique_prot), sep = "|"),
@@ -1907,7 +1907,7 @@ for (seeds in c(800, 1000)) { #800,1000
          legend=c(paste0("mean_dist:"),
                   paste0(round(mean(sqrt(dt.kmean$withinss/dt.kmean$size)),2),
                          paste0("±", 
-                         paste0(round(sd(sqrt(dt.kmean$withinss/dt.kmean$size)),2)),"sd")),
+                                paste0(round(sd(sqrt(dt.kmean$withinss/dt.kmean$size)),2)),"sd")),
                   paste0("mean_size:",round(mean(mean(dt.kmean$size)),2)),
                   paste0("n_dist>=2:",length(which(sqrt(dt.kmean$withinss/dt.kmean$size) >=2))),
                   paste0("n_pock>=2:",sum(dt.kmean$size[which(sqrt(dt.kmean$withinss/dt.kmean$size) >=2)])),
@@ -1966,7 +1966,7 @@ names(which(table_names_ligand > 1))
 table_names_ligand["PE8"]
 #plot size sur nbr ligands
 png(paste0(paste0("../results/K_Means_comparaison/size_L_nseeds_", seeds),
-".png"))
+           ".png"))
 plot(nbr_unique_lig, dt.kmean$size, xlim = c(0,300), ylim = c(0,300) , 
      xlab = "Nombre ligands dans groupe", ylab = "Taille du groupe",
      main = paste("taille clusters et nbr ligands associés  n_seeds = ", seeds))
@@ -2173,7 +2173,7 @@ for (i in strsplit(cluster_infos$pathString, "/")) {#nrow(cluster_infos)
 cluster_collaps = cbind(cluster_infos, c_1)
 cluster_collaps = cbind(cluster_collaps, c_2)
 cluster_collaps = cbind(cluster_collaps, c_3)
-  
+
 p <- collapsibleTree( cluster_collaps, c("c_1", "c_2", "c_3"), attribute ="size")
 p
 
@@ -2390,8 +2390,8 @@ rownames(dt_structures_scale) = names_prot_structures
 #
 
 dt_structures_scale[which(as.character(dt_benchmark$V1) != 
-                  as.character(dt_benchmark$V2) &
-                  as.character(dt_benchmark$V3) == "active"),]
+                            as.character(dt_benchmark$V2) &
+                            as.character(dt_benchmark$V3) == "active"),]
 
 
 as.character()

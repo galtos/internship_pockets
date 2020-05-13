@@ -1,0 +1,2 @@
+#pdb to mol2
+obabel $pock_renumb -O $PATH_OUTPUT/$name.mol2 --addtotitle ";PDB=$pdb"
