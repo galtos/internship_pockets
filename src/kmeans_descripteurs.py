@@ -11,14 +11,12 @@ from math import *
 import random
 import time
 #kmeans
-from pyclustering.cluster.kmedoids import kmedoids
 from pyclustering.cluster.kmeans import kmeans, kmeans_visualizer
 from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
 from pyclustering.utils.metric import type_metric, distance_metric, euclidean_distance
-from pyclustering.cluster.elbow import elbow
 #
 path_data_ph="../data/dt_72clean-50.csv"
-dt = pd.read_csv(path_data_ph, sep=',', index_col = 0)
+dt = pd.read_csv(path_data_ph, sep=',', index_col = 0, nrows = 200)
 #dt.index.values
 names_dt = dt.index.values
 #dt = dt.values.tolist()
@@ -64,6 +62,9 @@ W = -0.15142#vec1[51]-vec2[51]
 Y = -0.11486#vec1[53]-vec2[53]
 
 def descriptors_similarity(vec1, vec2):
+    if len(vec1) != 75:
+        print("hey")
+        return 1
     sim = Intercept + \
     hydrophobic_kyte * sqrt((vec1[56]-vec2[56])**2) + \
     p_aromatic_residues * sqrt((vec1[69]-vec2[69])**2) + \
@@ -116,23 +117,23 @@ Seeds = [5,10,20,30,40,50,60,70,80,90,100,200,300,400,500,600,700,800,900,1000]
 for Nseeds in Seeds:
     print("----"+str(Nseeds)+"----")
     #
-    initial_medoids = [random.randint(0,len(names_dt)) for i in range(Nseeds)]
-    #
+    ###
     metric = distance_metric(type_metric.USER_DEFINED, func= descriptors_similarity)
-    #
-    #initial_medoids = kmedoids_plusplus_initializer(dt, 8).initialize()
-    # Create instance of K-Means algorithm with prepared centers.
-    kmedoids_instance = kmedoids(dt, initial_medoids, metric=metric, itermax = 10)
+    initial_centers  = kmeans_plusplus_initializer(dt, Nseeds).initialize()
+    kmeans_instance = kmeans(dt, initial_centers , metric=metric, itermax = 50)
     # Run cluster analysis and obtain results.
-    
     start = time.time()
     print("hello")
-    kmedoids_instance.process()
+    kmeans_instance.process()
     end = time.time()
     print(end - start)
     #
-    clusters = kmedoids_instance.get_clusters()
-    final_medoids = kmedoids_instance.get_medoids()
+    clusters = kmeans_instance.get_clusters()
+    final_centers = kmeans_instance.get_centers()
+    
+    
+    #names_dt[clusters[i]][j]
+    
     #final_centers = kmedoids_instance.get_centers()
     # run cluster analysis and obtain results
     #
@@ -145,112 +146,50 @@ for Nseeds in Seeds:
     SSE = np.zeros(len(clusters))
     for i in range(len(clusters)):
         for j in range(len(clusters[i])):
-            SSE[i] = SSE[i] + descriptors_similarity(dt[clusters[i][j]],dt[final_medoids[i]])**2
+            SSE[i] = SSE[i] + descriptors_similarity(dt[clusters[i][j]],final_centers[i])**2
     #Betweens
     #BTW = TSS - sum(SSE)
     
     ## WRITE Inertie : TOT, INTRA, INTER
     #
-    file_SSE = open("../results/kmedoids_results_reglog/kmedoids_reglog_SSE_seeds"+str(Nseeds)+".txt","w")
+    file_SSE = open("../results/kmeans_results_reglog/kmeans_reglog_SSE_seeds"+str(Nseeds)+".txt","w")
     file_SSE.write("cluster,SSE\n")
     for i in range(len(SSE)):
         file_SSE.write("{},{}\n".format(i,SSE[i]))
     
     file_SSE.close()
     #write clusters
-    file_clusters = open("../results/kmedoids_results_reglog/kmedoids_reglog_seeds"+str(Nseeds)+"_clusters.txt","w")
+    file_clusters = open("../results/kmeans_results_reglog/kmeans_reglog_seeds"+str(Nseeds)+"_clusters.txt","w")
     for i in range(len(clusters)):
         for j in range(len(clusters[i])):
             file_clusters.write("{},{}\n".format(names_dt[clusters[i]][j],i))
     
     file_clusters.close()
-    #write medoids
-    file_medoids = open("../results/kmedoids_results_reglog/kmedoids_reglog_seeds"+str(Nseeds)+"_medoids.txt","w")
+    #write means
+    file_means = open("../results/kmeans_results_reglog/kmeans_reglog_seeds"+str(Nseeds)+"_means.txt","w")
     
     for i in range(len(clusters)):
-        file_medoids.write("{},{}\n".format(i,final_medoids[i])) #attention commence à 0
-    
-    file_medoids.close()
+        for j in range(len(final_centers[i])):
+            file_means.write("{},".format(final_centers[i][j])) #attention commence à 0
+        file_means.write("\n")
+    file_means.close()
     ###
+
+
 #average medoid
-initial_medoids_1 = [random.randint(0,len(names_dt)) for i in range(1)]
-kmedoids_instance_1 = kmedoids(dt, initial_medoids_1, metric=metric, itermax=10)
-kmedoids_instance_1.process()
-final_medoids_1 = kmedoids_instance_1.get_medoids()
-dt_medoid = dt[final_medoids_1[0]]
+initial_centers_1  = kmeans_plusplus_initializer(dt, 1).initialize()
+kmeans_instance_1 = kmeans(dt, initial_centers_1 , metric=metric, itermax = 5)
+kmeans_instance_1.process()
+final_means_1 = kmeans_instance_1.get_centers()
+dt_means = final_means_1[0]
 #TSS
 TSS = 0
 for i in range(len(dt)):
-    TSS = TSS + descriptors_similarity(dt[i], dt_medoid)**2
+    TSS = TSS + descriptors_similarity(dt[i], dt_means)**2
 #
-file_TSS = open("../results/kmedoids_results_reglog/kmedoids_reglog_TSS.txt","w")
+
+
+file_TSS = open("../results/kmeans_results_reglog/kmeans_reglog_TSS.txt","w")
 file_TSS.write("{}\n".format(TSS))
 file_TSS.close
 #
-
-def descriptors_similarity_bis(vec1, vec2):
-    if len(vec1) != 75:
-        print("hey")
-        return 1
-    vec = np.sqrt((vec1 - vec2)**2)
-    sim = Intercept + \
-    hydrophobic_kyte * vec[56] + \
-    p_aromatic_residues * vec[69]+ \
-    p_charged_residues * vec[6] + \
-    p_negative_residues * vec[23] + \
-    p_positive_residues * vec[10] + \
-    charge * vec[24] + \
-    p_Nlys_atom * vec[15] + \
-    p_Ocoo_atom * vec[67] + \
-    p_small_residues * vec[7] + \
-    p_C_atom * vec[64] + \
-    p_nitrogen_atom * vec[9] + \
-    RADIUS_HULL * vec[31] + \
-    SURFACE_HULL * vec[73] + \
-    DIAMETER_HULL * vec[49] + \
-    VOLUME_HULL * vec[28] + \
-    RADIUS_CYLINDER * vec[3] + \
-    C_RESIDUES * vec[63] + \
-    PSI * vec[58] + \
-    PCI * vec[12] + \
-    INERTIA_2 * vec[18] + \
-    INERTIA_3 * vec[70] + \
-    A * vec[32] + \
-    C * vec[34] + \
-    D * vec[36] + \
-    G * vec[37] + \
-    F * vec[38] + \
-    I * vec[39] + \
-    H * vec[40] + \
-    K * vec[41] + \
-    M * vec[42] + \
-    L * vec[43] + \
-    Q * vec[45] + \
-    P * vec[46] + \
-    S * vec[47] + \
-    R * vec[48] + \
-    T * vec[50] + \
-    W * vec[51] + \
-    Y * vec[53]
-    return 1-exp(sim)/(1+exp(sim))
-
-
-####### KMEANS ##########
-names_dt = dt.index.values
-###
-metric = distance_metric(type_metric.USER_DEFINED, func= descriptors_similarity_bis)
-initial_medoids = kmeans_plusplus_initializer(dt, 2).initialize()
-kmeans_instance = kmeans(dt, initial_medoids, metric=metric)
-# Run cluster analysis and obtain results.
-start = time.time()
-print("hello")
-kmeans_instance.process()
-end = time.time()
-print(end - start)
-#
-clusters = kmeans_instance.get_clusters()
-final_centers = kmeans_instance.get_centers()
-
-
-names_dt[clusters[i]][j]
-

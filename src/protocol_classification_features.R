@@ -10,6 +10,8 @@ library(colorspace)
 ####load data####
 dt_72descriptors = read.table("../data/data_PDB_72desc.txt", header = T, sep = "", row.names = 1, fill = TRUE)
 dt_12descriptors = read.table("../data/data_desc.csv", header = T, sep = ",", row.names = 1, nrow = 2)
+#dt overlap
+dt_overlap = read.table("../data/data_PDB_72desc_overlap_all.txt", header = T, sep = "", row.names = 1, fill = TRUE)
 ##DT cleaning##
 delete_clean_data = function(dt){
   print("number pockets NA")
@@ -58,6 +60,7 @@ delete_clean_data = function(dt){
 rownames(dt_72descriptors)
 dt_72descriptors[1:2,1:10]
 dt = dt_72descriptors
+###---OVERLAP-----###dt = dt_overlap
 ### 1: supprime features NULL
 nrow(dt_72descriptors)
 #summary(dt_72descriptors)
@@ -99,6 +102,21 @@ names_ligand = sapply(strsplit(rownames(dt), "_"), "[", 2)
 #
 length(unique(names_ligand))
 length(unique(names_prot))
+#save scale infos
+#write.table(attr(dt, "scaled:center"), file = "../results/scale/scaled:center_dt72clean.Rdata")
+#write.table(attr(dt, "scaled:scale"), file = "../results/scale/scaled:scale_dt72clean.Rdata")
+#save min max
+#write.table(rbind(apply(dt,2,max),apply(dt,2,min)), file = "../results/scale/minmax_value_dt72clean.Rdata")
+#
+### Management scale OVERLAP ###
+scaled_center_dt_t = read.table(file = "../results/scale/scaled:center_dt72clean.Rdata", col.names = F, row.names = 1)
+scaled_scale_dt_t = read.table(file = "../results/scale/scaled:scale_dt72clean.Rdata", col.names = F, row.names = 1)
+scaled_center_dt = scaled_center_dt_t[,1]
+names(scaled_center_dt) = rownames(scaled_center_dt_t)
+scaled_scale_dt = scaled_scale_dt_t[,1]
+names(scaled_scale_dt) = rownames(scaled_scale_dt_t)
+#
+dt = scale(dt, scaled_center_dt, scaled_scale_dt)
 ### INTERSECT PHARMACOPHORES ###
 #dt_pharmacophores = read.table("../data/FPCount_save_all_inter_dt72.txt",sep = ";", row.names = 1)
 load("../data/intersect_dt72_pharmacophores.Rdata")
@@ -1008,6 +1026,25 @@ names(dt_pock_samePsameL) = sapply(strsplit(data_samePsameL_dt72_pharmacophores$
 dt_pock_diffPsameL = sqrt((dt[data_diffPsameL_dt72_pharmacophores[,"name_pock1"],features] - dt[data_diffPsameL_dt72_pharmacophores[,"name_pock2"],features])**2)
 names(dt_pock_diffPsameL) = sapply(strsplit(data_diffPsameL_dt72_pharmacophores$name_pock1, "_"), "[", 2)
 dt_pock_diffPdiffL = sqrt((dt[data_diffPdiffL_dt72_pharmacophores[,"name_pock1"],features] - dt[data_diffPdiffL_dt72_pharmacophores[,"name_pock2"],features])**2)
+#FOR OVERLAP
+#withoutNA
+dt = na.omit(dt[,features])
+#
+index_data_samePsameL_dt72_pharmacophores = which(is.element(data_samePsameL_dt72_pharmacophores[,"name_pock1"],rownames(dt)) == TRUE &
+                                                    is.element(data_samePsameL_dt72_pharmacophores[,"name_pock2"],rownames(dt)) == TRUE)
+#
+index_data_diffPsameL_dt72_pharmacophores = which(is.element(data_diffPsameL_dt72_pharmacophores[,"name_pock1"],rownames(dt)) == TRUE &
+                                                    is.element(data_diffPsameL_dt72_pharmacophores[,"name_pock2"],rownames(dt)) == TRUE)
+#
+index_data_diffPdiffL_dt72_pharmacophores = which(is.element(data_diffPdiffL_dt72_pharmacophores[,"name_pock1"],rownames(dt)) == TRUE &
+                                                    is.element(data_diffPdiffL_dt72_pharmacophores[,"name_pock2"],rownames(dt)) == TRUE)
+
+dt_pock_samePsameL = sqrt((dt[data_samePsameL_dt72_pharmacophores[index_data_samePsameL_dt72_pharmacophores,"name_pock1"],features] - dt[data_samePsameL_dt72_pharmacophores[index_data_samePsameL_dt72_pharmacophores,"name_pock2"],features])**2)
+names(dt_pock_samePsameL) = sapply(strsplit(data_samePsameL_dt72_pharmacophores[index_data_samePsameL_dt72_pharmacophores,]$name_pock1, "_"), "[", 2)
+dt_pock_diffPsameL = sqrt((dt[data_diffPsameL_dt72_pharmacophores[index_data_diffPsameL_dt72_pharmacophores,"name_pock1"],features] - dt[data_diffPsameL_dt72_pharmacophores[index_data_diffPsameL_dt72_pharmacophores,"name_pock2"],features])**2)
+names(dt_pock_diffPsameL) = sapply(strsplit(data_diffPsameL_dt72_pharmacophores[index_data_diffPsameL_dt72_pharmacophores,]$name_pock1, "_"), "[", 2)
+dt_pock_diffPdiffL = sqrt((dt[data_diffPdiffL_dt72_pharmacophores[index_data_diffPdiffL_dt72_pharmacophores,"name_pock1"],features] - dt[data_diffPdiffL_dt72_pharmacophores[index_data_diffPdiffL_dt72_pharmacophores,"name_pock2"],features])**2)
+
 # MEAN
 #### distance sans biais en faisant la moyenne ####
 #samePsameL
@@ -1080,6 +1117,95 @@ summary(dt_predict.glm)
 
 dt_predict.glm.step = step(dt_predict.glm, direction = "both")
 summary(dt_predict.glm.step)
+#save(dt_predict.glm.step, file = "../results/kmeans_results_reglog/model.glm.step_overlap.Rdata")
+pock_test = sqrt((dt["101M_HEM_A_1",features] - dt["102M_HEM_A_1",features])**2)
+pock_test = as.data.frame(rbind(pock_test,pock_test))
+
+predict.glm(dt_predict.glm.step, newdata=pock_test[,features], type = "response" )
+exp(sim)/(1+exp(sim))
+
+similarity_regol = function(dt_pock1,dt_pock2) {
+  Intercept = 6.61543
+  hydrophobic_kyte = -0.52657#vec1[56]-vec2[56]
+  p_aromatic_residues = -0.26214#vec1[69]-vec2[69]
+  p_charged_residues = -0.42272#vec1[6]-vec2[6]
+  p_negative_residues = 0.33210#vec1[23]-vec2[23]
+  p_positive_residues = 0.59123#vec1[10]-vec2[10]
+  charge = -0.73920#vec1[24]-vec2[24]
+  p_Nlys_atom = -0.26117#vec1[15]-vec2[15]
+  p_Ocoo_atom = -0.16479#vec1[67]-vec2[67]
+  p_small_residues = -0.16480#vec1[7]-vec2[7]
+  p_C_atom = 0.19381#vec1[64]-vec2[64]
+  p_nitrogen_atom = -0.36986#vec1[9]-vec2[9]
+  RADIUS_HULL = -3.33198#vec1[31]-vec2[31]
+  SURFACE_HULL = -3.57145#vec1[73]-vec2[73] 
+  DIAMETER_HULL = 1.10726#vec1[49]-vec2[49]
+  VOLUME_HULL = 2.46588#vec1[28]-vec2[28]
+  RADIUS_CYLINDER = 1.07161#vec1[3]-vec2[3]
+  C_RESIDUES = -0.65951#vec1[63]-vec2[63]
+  PSI = -0.18916#vec1[58]-vec2[58]
+  PCI = 0.16018#vec1[12]-vec2[12]
+  INERTIA_2 = -0.32137#vec1[18]-vec2[18]
+  INERTIA_3 = -0.15445#vec1[70]-vec2[70]
+  A = -0.16218#vec1[32]-vec2[32]
+  C = -0.34735#vec1[34]-vec2[34]
+  D = -0.15076#vec1[36]-vec2[36]
+  G = -0.43486#vec1[37]-vec2[37]
+  F = -0.18449#vec1[38]-vec2[38]
+  I = -0.30728#vec1[39]-vec2[39]
+  H = -0.27257#vec1[40]-vec2[40]
+  K = -0.27611#vec1[41]-vec2[41]
+  M = -0.27610#vec1[42]-vec2[42]
+  L = -0.34013#vec1[43]-vec2[43]
+  Q = -0.11223#vec1[45]-vec2[45]
+  P = -0.11730#vec1[46]-vec2[46]
+  S = -0.30554#vec1[47]-vec2[47]
+  R = -0.22685#vec1[48]-vec2[48]
+  T = -0.30320#vec1[50]-vec2[50]
+  W = -0.15142#vec1[51]-vec2[51]
+  Y = -0.11486#vec1[53]-vec2[53]
+  sim = (Intercept + 
+           hydrophobic_kyte * sqrt((dt[dt_pock1,"hydrophobic_kyte"] - dt[dt_pock2,"hydrophobic_kyte"])**2) + 
+           p_aromatic_residues * sqrt((dt[dt_pock1,"p_aromatic_residues"] - dt[dt_pock2,"p_aromatic_residues"])**2) +
+           p_charged_residues * sqrt((dt[dt_pock1,"p_charged_residues"] - dt[dt_pock2,"p_charged_residues"])**2) +
+           p_negative_residues * sqrt((dt[dt_pock1,"p_negative_residues"] - dt[dt_pock2,"p_negative_residues"])**2) +
+           p_positive_residues * sqrt((dt[dt_pock1,"p_positive_residues"] - dt[dt_pock2,"p_positive_residues"])**2) +
+           charge * sqrt((dt[dt_pock1,"charge"] - dt[dt_pock2,"charge"])**2) +
+           p_Nlys_atom *sqrt((dt[dt_pock1,"p_Nlys_atom"] - dt[dt_pock2,"p_Nlys_atom"])**2) +
+           p_Ocoo_atom *sqrt((dt[dt_pock1,"p_Ocoo_atom"] - dt[dt_pock2,"p_Ocoo_atom"])**2) +
+           p_small_residues *sqrt((dt[dt_pock1,"p_small_residues"] - dt[dt_pock2,"p_small_residues"])**2) +
+           p_C_atom *sqrt((dt[dt_pock1,"p_C_atom"] - dt[dt_pock2,"p_C_atom"])**2) +
+           p_nitrogen_atom *sqrt((dt[dt_pock1,"p_nitrogen_atom"] - dt[dt_pock2,"p_nitrogen_atom"])**2) +
+           RADIUS_HULL *sqrt((dt[dt_pock1,"RADIUS_HULL"] - dt[dt_pock2,"RADIUS_HULL"])**2) +
+           SURFACE_HULL *sqrt((dt[dt_pock1,"SURFACE_HULL"] - dt[dt_pock2,"SURFACE_HULL"])**2) +
+           DIAMETER_HULL *sqrt((dt[dt_pock1,"DIAMETER_HULL"] - dt[dt_pock2,"DIAMETER_HULL"])**2) +
+           VOLUME_HULL *sqrt((dt[dt_pock1,"VOLUME_HULL"] - dt[dt_pock2,"VOLUME_HULL"])**2) +
+           RADIUS_CYLINDER *sqrt((dt[dt_pock1,"RADIUS_CYLINDER"] - dt[dt_pock2,"RADIUS_CYLINDER"])**2) +
+           C_RESIDUES *sqrt((dt[dt_pock1,"C_RESIDUES"] - dt[dt_pock2,"C_RESIDUES"])**2) +
+           PSI *sqrt((dt[dt_pock1,"PSI"] - dt[dt_pock2,"PSI"])**2) +
+           PCI *sqrt((dt[dt_pock1,"PCI"] - dt[dt_pock2,"PCI"])**2) +
+           INERTIA_2 *sqrt((dt[dt_pock1,"INERTIA_2"] - dt[dt_pock2,"INERTIA_2"])**2) +
+           INERTIA_3 *sqrt((dt[dt_pock1,"INERTIA_3"] - dt[dt_pock2,"INERTIA_3"])**2) +
+           A *sqrt((dt[dt_pock1,"A"] - dt[dt_pock2,"A"])**2) +
+           C *sqrt((dt[dt_pock1,"C"] - dt[dt_pock2,"C"])**2) +
+           D *sqrt((dt[dt_pock1,"D"] - dt[dt_pock2,"D"])**2) +
+           G *sqrt((dt[dt_pock1,"G"] - dt[dt_pock2,"G"])**2) +
+           F *sqrt((dt[dt_pock1,"F"] - dt[dt_pock2,"F"])**2) +
+           I *sqrt((dt[dt_pock1,"I"] - dt[dt_pock2,"I"])**2) +
+           H *sqrt((dt[dt_pock1,"H"] - dt[dt_pock2,"H"])**2) +
+           K *sqrt((dt[dt_pock1,"K"] - dt[dt_pock2,"K"])**2) +
+           M *sqrt((dt[dt_pock1,"M"] - dt[dt_pock2,"M"])**2) +
+           L *sqrt((dt[dt_pock1,"L"] - dt[dt_pock2,"L"])**2) +
+           Q *sqrt((dt[dt_pock1,"Q"] - dt[dt_pock2,"Q"])**2) +
+           P *sqrt((dt[dt_pock1,"P"] - dt[dt_pock2,"P"])**2) +
+           S *sqrt((dt[dt_pock1,"S"] - dt[dt_pock2,"S"])**2) +
+           R *sqrt((dt[dt_pock1,"R"] - dt[dt_pock2,"R"])**2) +
+           T *sqrt((dt[dt_pock1,"T"] - dt[dt_pock2,"T"])**2) +
+           W *sqrt((dt[dt_pock1,"W"] - dt[dt_pock2,"W"])**2) +
+           Y *sqrt((dt[dt_pock1,"Y"] - dt[dt_pock2,"Y"])**2) 
+  )
+  return(1-exp(sim)/(1+exp(sim)))
+}
 #
 y_predict = predict.glm(dt_predict.glm.step, newdata=dt_predict_app[,features],type = "response" )
 y_predict = predict.glm(dt_predict.glm.step, newdata=dt_predict_test[,features],type = "response" )
@@ -1093,6 +1219,10 @@ perf_auc(y_predict, y_true_test_diffPsameL)
 #
 y_predict[which(y_predict > 0.5)] = 1
 y_predict[which(y_predict < 0.5)] = 0
+#MCC
+#library(mltools)
+mcc(preds = y_predict, actuals = y_true_test_diffPsameL)
+#
 glm.table <- table(y_predict, y_true_test)
 Se = glm.table[2,2] / (glm.table[2,2] + glm.table[1,2])
 Sp = glm.table[1,1] / (glm.table[1,1] + glm.table[2,1])
@@ -1431,5 +1561,50 @@ plot(dist_lig_diffP_sameL,y_predict[nrow(dt_pock_samePsameL):(nrow(dt_pock_sameP
 plot(dist_lig_diffP_diffL,y_predict[(nrow(dt_pock_samePsameL)+nrow(dt_pock_diffPsameL)):nrow(dt_predict)],
      ylim = c(0,1))
 
+###POCHE à RETIRER ###
+data_samePsameL_dt72_pharmacophores
+data_diffPsameL_dt72_pharmacophores
+data_diffPdiffL_dt72_pharmacophores
 
+#50
+set.seed(83)
+pocket_samePsameL_50 = data_samePsameL_dt72_pharmacophores[sample(nrow(data_samePsameL_dt72_pharmacophores),
+                                                      size = 50),2]
+length(pocket_samePsameL_50)
+pocket_diffPsameL_50 = data_diffPsameL_dt72_pharmacophores[sample(nrow(data_diffPsameL_dt72_pharmacophores),
+                                                                 size = 50),2]
+length(pocket_diffPsameL_50)
+pocket_diffPdiffL_50 = data_diffPdiffL_dt72_pharmacophores[sample(nrow(data_diffPdiffL_dt72_pharmacophores),
+                                                                 size = 50),2]
+length(pocket_diffPdiffL_50)
 
+save(pocket_samePsameL_50, file = "../results/kmedoids_results_reglog/pocket_samePsameL_50.Rdata")
+save(pocket_diffPsameL_50, file = "../results/kmedoids_results_reglog/pocket_diffPsameL_50.Rdata")
+save(pocket_diffPdiffL_50, file = "../results/kmedoids_results_reglog/pocket_diffPdiffL_50.Rdata")
+##dt-50pockets.
+dt = dt[setdiff(rownames(dt),c(pocket_samePsameL_5,pocket_diffPsameL_5,pocket_diffPdiffL_5)),]
+nrow(dt)
+write.csv(dt[setdiff(rownames(dt),c(pocket_samePsameL_5,pocket_diffPsameL_5,pocket_diffPdiffL_5)),],
+          file = "../data/dt_72clean-50.csv")
+
+### REGLOG PLOT Fscore Precision Recall ###
+y_predict = predict.glm(dt_predict.glm.step, newdata=dt_predict_test[,features],type = "response" )
+
+perf_precision = NULL
+perf_recall = NULL
+perf_F1 = NULL
+for (i in seq(0,1,0.05)) {
+  y_predict = predict.glm(dt_predict.glm.step, newdata=dt_predict_test[,features],type = "response" )
+  y_predict[which(y_predict > i)] = 1
+  y_predict[which(y_predict <= i)] = 0
+  glm.table <- table(factor(y_predict,levels = 0:1), factor(y_true_test,levels = 0:1))
+
+  perf_precision = c(perf_precision,glm.table[2,2] / (glm.table[2,2] + glm.table[2,1]))
+  perf_recall = c(perf_recall,glm.table[2,2] / (glm.table[2,2] + glm.table[1,2]))
+  perf_F1 = c(perf_F1, (2*glm.table[2,2])/(2*glm.table[2,2]+glm.table[1,2]+glm.table[2,1]))
+}
+
+plot(seq(0,1,0.05),perf_precision, type = 'l',col = 2)
+points(seq(0,1,0.05),perf_recall, type = 'l', col = 3)
+points(seq(0,1,0.05),perf_F1, type = 'l', col = 4)
+legend("bottom", legend = c("precision","recall","score F1"), col = c(2,3,4), lty=1)

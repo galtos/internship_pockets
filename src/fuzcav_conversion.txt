@@ -1,2 +1,10 @@
 #pdb to mol2
 obabel $pock_renumb -O $PATH_OUTPUT/$name.mol2 --addtotitle ";PDB=$pdb"
+
+./home/cerisier/Logiciels/FuzCav/utils/CaTagger.pl
+
+./../../../../../cerisier/Logiciels/FuzCav/utils/CaTagger.pl 6COX_LIG_A_1_prox5_5_res.mol2 > 6COX_LIG_A_1_prox5_5_res_Tagged.mol2
+
+
+java -jar $FuzCav/dist/3pointPharCav.jar -d $FuzCav/utils/resDef/tableDefCA.txt -t $FuzCav/utils/triplCav/interval.txt -l lis
+tCavTagged.txt -o FP/FPCount.txt -c

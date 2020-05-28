@@ -2106,6 +2106,18 @@ dist_Euc_test = function (x, centers)
   }
   z
 }
+dist_Euc_test = function (x, centers) 
+{
+  z <- matrix(0, nrow(x), ncol = nrow(centers))
+  for (k in 1:nrow(centers)) {
+    d_x = apply(x, 1, function(fingerprint) {1-dist_fuzcav_ph(as.integer(fingerprint), as.integer(centers[k,]))})
+    #for (i in 1:nrow(x)) {
+    #  d_x = c(d_x, 1 - dist_fuzcav_ph(as.integer(x[i,]), as.integer(centers[k,])))
+    #}
+    z[,k] <- d_x
+  }
+  z
+}
 
 dist_fuzcav = function (x, centers) {
   z <- matrix(0, nrow(x), ncol = nrow(centers))
@@ -2524,3 +2536,4 @@ points(c(0,0.113,1),c(0,0.016,1), type = "l")
 length(which(dt_benchmark$V3  == "active" & dt_benchmark$V1 != dt_benchmark$V2))
 length(which(dt_benchmark$V3 == "inactive" & dt_benchmark$V1 != dt_benchmark$V2))
 y_true[55]
+
