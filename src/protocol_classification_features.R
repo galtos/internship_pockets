@@ -103,14 +103,14 @@ names_ligand = sapply(strsplit(rownames(dt), "_"), "[", 2)
 length(unique(names_ligand))
 length(unique(names_prot))
 #save scale infos
-#write.table(attr(dt, "scaled:center"), file = "../results/scale/scaled:center_dt72clean.Rdata")
-#write.table(attr(dt, "scaled:scale"), file = "../results/scale/scaled:scale_dt72clean.Rdata")
+#write.table(attr(dt, "scaled:center"), file = "../results/scale/scaled_center_dt72clean.Rdata")
+#write.table(attr(dt, "scaled:scale"), file = "../results/scale/scaled_scale_dt72clean.Rdata")
 #save min max
 #write.table(rbind(apply(dt,2,max),apply(dt,2,min)), file = "../results/scale/minmax_value_dt72clean.Rdata")
 #
 ### Management scale OVERLAP ###
-scaled_center_dt_t = read.table(file = "../results/scale/scaled:center_dt72clean.Rdata", col.names = F, row.names = 1)
-scaled_scale_dt_t = read.table(file = "../results/scale/scaled:scale_dt72clean.Rdata", col.names = F, row.names = 1)
+scaled_center_dt_t = read.table(file = "../results/scale/scaled_center_dt72clean.Rdata", col.names = F, row.names = 1)
+scaled_scale_dt_t = read.table(file = "../results/scale/scaled_scale_dt72clean.Rdata", col.names = F, row.names = 1)
 scaled_center_dt = scaled_center_dt_t[,1]
 names(scaled_center_dt) = rownames(scaled_center_dt_t)
 scaled_scale_dt = scaled_scale_dt_t[,1]
@@ -945,7 +945,7 @@ sm.density.compare(c(dist_lig_diffP_diffL,
                      rep(2,length(dist_lig_sameP_sameL)),
                      rep(3,length(dist_lig_diffP_sameL))
                    ),
-                   model = "none"
+                   model = "none", xlim = c(0,500),
                    , xlab = "Mean distance bewteen pockets")
 
 ### distance euclideanne + distance fuzcav ###
@@ -1117,7 +1117,7 @@ summary(dt_predict.glm)
 
 dt_predict.glm.step = step(dt_predict.glm, direction = "both")
 summary(dt_predict.glm.step)
-#save(dt_predict.glm.step, file = "../results/kmeans_results_reglog/model.glm.step_overlap.Rdata")
+#save(dt_predict.glm.step, file = "../results/kmeans_results_reglog/model.glm.step.Rdata")
 pock_test = sqrt((dt["101M_HEM_A_1",features] - dt["102M_HEM_A_1",features])**2)
 pock_test = as.data.frame(rbind(pock_test,pock_test))
 
@@ -1582,10 +1582,10 @@ save(pocket_samePsameL_50, file = "../results/kmedoids_results_reglog/pocket_sam
 save(pocket_diffPsameL_50, file = "../results/kmedoids_results_reglog/pocket_diffPsameL_50.Rdata")
 save(pocket_diffPdiffL_50, file = "../results/kmedoids_results_reglog/pocket_diffPdiffL_50.Rdata")
 ##dt-50pockets.
-dt = dt[setdiff(rownames(dt),c(pocket_samePsameL_5,pocket_diffPsameL_5,pocket_diffPdiffL_5)),]
+dt = dt[setdiff(rownames(dt),c(pocket_samePsameL_50,pocket_diffPsameL_50,pocket_diffPdiffL_50)),]
 nrow(dt)
-write.csv(dt[setdiff(rownames(dt),c(pocket_samePsameL_5,pocket_diffPsameL_5,pocket_diffPdiffL_5)),],
-          file = "../data/dt_72clean-50.csv")
+write.csv(dt[setdiff(rownames(dt),c(pocket_samePsameL_50,pocket_diffPsameL_50,pocket_diffPdiffL_50)),],
+          file = "../data/dt_72clean_overlap-50.csv")
 
 ### REGLOG PLOT Fscore Precision Recall ###
 y_predict = predict.glm(dt_predict.glm.step, newdata=dt_predict_test[,features],type = "response" )
@@ -1604,7 +1604,7 @@ for (i in seq(0,1,0.05)) {
   perf_F1 = c(perf_F1, (2*glm.table[2,2])/(2*glm.table[2,2]+glm.table[1,2]+glm.table[2,1]))
 }
 
-plot(seq(0,1,0.05),perf_precision, type = 'l',col = 2)
+plot(seq(0,1,0.05),perf_precision, type = 'l',col = 2,ylim=c(0,1))
 points(seq(0,1,0.05),perf_recall, type = 'l', col = 3)
 points(seq(0,1,0.05),perf_F1, type = 'l', col = 4)
 legend("bottom", legend = c("precision","recall","score F1"), col = c(2,3,4), lty=1)

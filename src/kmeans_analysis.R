@@ -122,7 +122,11 @@ data_diffPsameL_dt72_pharmacophores = read.csv("../data/data_structure_comparais
 data_diffPdiffL_dt72_pharmacophores = read.csv("../data/data_structure_comparaison/data_diffPdiffL_dt72_pharmacophores.csv", colClasses = "character")
 #MODEL
 load("../results/kmeans_results_reglog/model.glm.step.Rdata")
+#save(dt_predict.glm.step,file="../results/kmeans_results_reglog/model.glm.step.Rdata",version=2)
+#
 load("../results/kmeans_results_reglog/model.glm.step_overlap.Rdata")
+#save(dt_predict.glm.step,file="../results/kmeans_results_reglog/model.glm.step_overlap.Rdata",version=2)
+
 #
 pocket_samePsameL_50
 pocket_diffPsameL_50
@@ -143,10 +147,10 @@ length(pocket_diffPdiffL_50)
 #dt=as.data.frame(dt)
 #colnames_dt = colnames(dt)
 ##
-seeds = 10
-seuil = 500
-kmean_results = read.table(file = paste0(paste0("../data/kmeans_results_reglog/kmeans_reglog_seeds",seeds),"_clusters.txt"), sep = ",", header = F, row.names = 1)
-kmean_centroids = read.table(file = paste0(paste0("../data/kmeans_results_reglog/kmeans_reglog_seeds",seeds),"_means.txt"), sep = ",", header = F)
+seeds = 100
+seuil = 0.8
+kmean_results = read.table(file = paste0(paste0("../results/kmeans_results_reglog_PproxMfpo/kmeans_reglog_seeds",seeds),"_clusters.txt"), sep = ",", header = F, row.names = 1)
+kmean_centroids = read.table(file = paste0(paste0("../results/kmeans_results_reglog_PproxMfpo/kmeans_reglog_seeds",seeds),"_means.txt"), sep = ",", header = F)
 colnames(kmean_centroids) = colnames_dt
 #sameLsameP
 y_predict_sameLsameP = NULL
@@ -221,9 +225,9 @@ Sp = table_clusters[1,1] / (table_clusters[1,1] + table_clusters[2,1])
 Se
 Sp
 #library(mltools)
-sLsP = 21
-sLdP = 13
-dLdP = 10
+sLsP = 40
+sLdP = 41
+dLdP = 20
 TP = sLsP+sLdP
 TN = 50-dLdP
 FP = dLdP
@@ -244,8 +248,8 @@ mean(nclust_predict_diffLdiffP)
 ### POCHES FPOCKETS 50###
 dt_fpocket = read.table("../data/data_PDB_72desc_overlap_50.txt", header = T, sep = "", row.names = 1, fill = TRUE)
 #
-scaled_center_dt_t = read.table(file = "../results/scale/scaled:center_dt72clean.Rdata", col.names = F, row.names = 1)
-scaled_scale_dt_t = read.table(file = "../results/scale/scaled:scale_dt72clean.Rdata", col.names = F, row.names = 1)
+scaled_center_dt_t = read.table(file = "../results/scale/scaled_center_dt72clean.Rdata", col.names = F, row.names = 1)
+scaled_scale_dt_t = read.table(file = "../results/scale/scaled_scale_dt72clean.Rdata", col.names = F, row.names = 1)
 scaled_center_dt = scaled_center_dt_t[,1]
 names(scaled_center_dt) = rownames(scaled_center_dt_t)
 scaled_scale_dt = scaled_scale_dt_t[,1]
@@ -266,9 +270,9 @@ dist_lig_diffP_sameL = NULL
 dist_lig_diffP_diffL = NULL
 for (i in 1:nrow(pocket_samePsameL_50)) {
   print(i)
-  dist_lig_sameP_sameL = c(dist_lig_sameP_sameL, predict.glm(dt_predict.glm.step, newdata = sqrt((dt_fpocket[pocket_samePsameL_50[i,2],]-dt[pocket_samePsameL_50[i,3],])**2), type = "response"))
-  dist_lig_diffP_sameL = c(dist_lig_diffP_sameL, predict.glm(dt_predict.glm.step, newdata = sqrt((dt_fpocket[pocket_diffPsameL_50[i,2],]-dt[pocket_diffPsameL_50[i,3],])**2), type = "response"))
-  dist_lig_diffP_diffL = c(dist_lig_diffP_diffL, predict.glm(dt_predict.glm.step, newdata = sqrt((dt_fpocket[pocket_diffPdiffL_50[i,2],]-dt[pocket_diffPdiffL_50[i,3],])**2), type = "response"))
+  dist_lig_sameP_sameL = c(dist_lig_sameP_sameL, predict.glm(dt_predict.glm.step, newdata = sqrt((dt_fpocket[pocket_samePsameL_50[i,2],]-dt[pocket_samePsameL_50[i,2],])**2), type = "response"))
+  dist_lig_diffP_sameL = c(dist_lig_diffP_sameL, predict.glm(dt_predict.glm.step, newdata = sqrt((dt_fpocket[pocket_diffPsameL_50[i,2],]-dt[pocket_diffPsameL_50[i,2],])**2), type = "response"))
+  dist_lig_diffP_diffL = c(dist_lig_diffP_diffL, predict.glm(dt_predict.glm.step, newdata = sqrt((dt_fpocket[pocket_diffPdiffL_50[i,2],]-dt[pocket_diffPdiffL_50[i,2],])**2), type = "response"))
 }
 #
 y_true = c(rep(1,length(dist_lig_sameP_sameL)+
@@ -277,6 +281,11 @@ y_true = c(rep(1,length(dist_lig_sameP_sameL)+
 y_predict = c(dist_lig_sameP_sameL,
               dist_lig_diffP_sameL,
               dist_lig_diffP_diffL)
+#
+y_true = c(rep(1,length(dist_lig_diffP_sameL)),
+           rep(0,length(dist_lig_diffP_diffL)))
+y_predict = c(dist_lig_sameP_sameL,
+              dist_lig_diffP_sameL)
 #library(ROCR)
 dt.pred = prediction(y_predict, y_true)
 dt.perf = performance(dt.pred, "tpr", "fpr")
@@ -299,7 +308,79 @@ pocket_diffPdiffL_50[which(pocket_diffPdiffL_50[,2] == "5HHF_62F_A_1"),]
 pocket_diffPdiffL_50[which(pocket_diffPdiffL_50[,2] == "2HA6_SCK_B_4"),]
 #
 pocket_diffPdiffL_50[which(pocket_diffPdiffL_50[,2] == "3IND_593_A_1"),]
+#### Comparaison avec score overlap ###
+SO_50 = read.table("../data/SO_desc_fpocket_50.txt",row.names = 1,sep=",")
+names_SO_50 = rownames(SO_50)
+SO_50 = as.vector(t(SO_50))
+names(SO_50)=names_SO_50
+#
+#y_predict_fpocket = y_predict
+#y_predict = abs(y_predict_fpocket-y_predict)
+#
+##poches 50
+#pocket_samePsameL_50
+load("../results/kmeans_results_reglog/pocket_samePsameL_50.Rdata")
+#pocket_diffPsameL_50
+load("../results/kmeans_results_reglog/pocket_diffPsameL_50.Rdata")
+#pocket_diffPdiffL_50
+load("../results/kmeans_results_reglog/pocket_diffPdiffL_50.Rdata")
+##
+plot(SO_50[c(pocket_samePsameL_50)],y_predict[c(pocket_samePsameL_50)],xlim=c(0,1),ylim=c(0,1))
+plot(SO_50[c(pocket_diffPsameL_50)],y_predict[c(pocket_diffPsameL_50)],xlim=c(0,1),ylim=c(0,1))
+plot(SO_50[c(pocket_diffPdiffL_50)],y_predict[c(pocket_diffPdiffL_50)],xlim=c(0,1),ylim=c(0,1))
 
+cor(SO_50[c(pocket_samePsameL_50)],y_predict[c(pocket_samePsameL_50)])
+cor(SO_50[c(pocket_diffPsameL_50)],y_predict[c(pocket_diffPsameL_50)])
+cor(SO_50[c(pocket_diffPdiffL_50)],y_predict[c(pocket_diffPdiffL_50)])
+#
+t.test(SO_50[c(pocket_samePsameL_50)],y_predict[c(pocket_samePsameL_50)])
+t.test(SO_50[c(pocket_diffPsameL_50)],y_predict[c(pocket_diffPsameL_50)])
+t.test(SO_50[c(pocket_diffPdiffL_50)],y_predict[c(pocket_diffPdiffL_50)])
+#
+class(SO_50)
+class(y_predict)
+#
+library(ggplot2)
+library(ggExtra)
+#data(mpg, package="ggplot2")
+
+# mpg <- read.csv("http://goo.gl/uEeRGu")
+
+# Scatterplot
+
+theme_set(theme_bw())  # pre-set the bw theme.
+#mpg_select <- mpg[mpg$hwy >= 35 & mpg$cty > 27, ]
+sLsP_50 = cbind(SO_50[c(pocket_samePsameL_50)],y_predict[c(pocket_samePsameL_50)])
+sLsP_50 = as.data.frame(sLsP_50)
+colnames(sLsP_50) = c("SO","ypred")
+#
+sLdP_50 = cbind(SO_50[c(pocket_diffPsameL_50)],y_predict[c(pocket_diffPsameL_50)])
+sLdP_50 = as.data.frame(sLdP_50)
+colnames(sLdP_50) = c("SO","ypred")
+#
+dLdP_50 = cbind(SO_50[c(pocket_diffPdiffL_50)],y_predict[c(pocket_diffPdiffL_50)])
+dLdP_50 = as.data.frame(dLdP_50)
+colnames(dLdP_50) = c("SO","ypred")
+###
+sP_50 = cbind(SO_50,y_predict)
+sP_50 = as.data.frame(sP_50)
+colnames(sP_50) = c("SO","ypred")
+cor.test(sP_50$SO,sP_50$ypred)
+###
+g <- ggplot(sP_50, aes(SO, ypred)) +
+  geom_count() +
+  geom_smooth(method="lm", se=F) + xlim(0,0.6)+ylim(0,1)
+
+
+ggMarginal(g, type = "histogram", fill="transparent")
+
+p1 <- ggplot(sP_50, aes(SO,ypred)) +
+  geom_smooth(method="lm", se=F) + xlim(0,0.6)+ylim(0,1)
+ggMarginal(p1 + geom_point(), type = "histogram", fill="transparent")
+
+#ggMarginal(g, type = "boxplot", fill="transparent")
+
+# ggMarginal(g, type = "density", fill="transparent")
 ####pharmacophores ####
 #data
 dt_ph_50 = read.table("../data/FPCount_50.txt", sep = ";", row.names = 1)
@@ -314,11 +395,12 @@ sourceCpp("C_code/dist_fuzcav.cpp")
 #dist_fuzcav_ph(as.integer(dt_pharmacophores[1,]),as.integer(dt_pharmacophores[2,]))
 similarity_ph = function(vec1,vec2) {
   return(dist(rbind(vec1,vec2)))
+  #return(dist_fuzcav_ph(as.integer(vec1),as.integer(vec2)))
   #return(dist_fuzcav_ph_norm(as.integer(vec1),as.integer(vec2)))
 }
 #
-seeds = 30
-seuil = 999999
+seeds = 5
+seuil = 90
 kmean_results = read.table(file = paste0(paste0("../results/kmeans_results_ph_euc_50/kmeans_reglog_seeds",seeds),"_clusters.txt"), sep = ",", header = F, row.names = 1)
 kmean_centroids = read.table(file = paste0(paste0("../results/kmeans_results_ph_euc_50/kmeans_reglog_seeds",seeds),"_means.txt"), sep = ",", header = F)
 kmean_centroids[,ncol(kmean_centroids)] = NULL
@@ -338,7 +420,7 @@ for (i in 1:nrow(pocket_samePsameL_50)) {
   for (j in 1:nrow(kmean_centroids)) {
     pock2_clusters = c(pock2_clusters, similarity_ph(kmean_centroids[j,],dt[pocket_samePsameL_50[i,2],]))
   }
-  pock2_cluster = which(pock2_clusters > seuil|pock2_clusters == min(pock2_clusters))-1
+  pock2_cluster = which(pock2_clusters < seuil|pock2_clusters == min(pock2_clusters))-1
   nclust_predict_sameLsameP = c(nclust_predict_sameLsameP,length(pock2_cluster))
   if(is.element(pock1_cluster,pock2_cluster)) {
     y_predict_sameLsameP = c(y_predict_sameLsameP,1)
@@ -358,7 +440,7 @@ for (i in 1:nrow(pocket_diffPsameL_50)) {
   for (j in 1:nrow(kmean_centroids)) {
     pock2_clusters = c(pock2_clusters,similarity_ph(kmean_centroids[j,],dt[pocket_diffPsameL_50[i,2],]))
   }
-  pock2_cluster = which(pock2_clusters > seuil|pock2_clusters == min(pock2_clusters))-1
+  pock2_cluster = which(pock2_clusters < seuil|pock2_clusters == min(pock2_clusters))-1
   nclust_predict_sameLdiffP = c(nclust_predict_sameLdiffP,length(pock2_cluster))
   if(is.element(pock1_cluster,pock2_cluster)) {
     y_predict_sameLdiffP = c(y_predict_sameLdiffP,1)
@@ -378,7 +460,7 @@ for (i in 1:nrow(pocket_diffPsameL_50)) {
   for (j in 1:nrow(kmean_centroids)) {
     pock2_clusters = c(pock2_clusters, similarity_ph(kmean_centroids[j,],dt[pocket_diffPdiffL_50[i,2],]))
   }
-  pock2_cluster = which(pock2_clusters > seuil|pock2_clusters == min(pock2_clusters))-1
+  pock2_cluster = which(pock2_clusters < seuil|pock2_clusters == min(pock2_clusters))-1
   nclust_predict_diffLdiffP = c(nclust_predict_diffLdiffP,length(pock2_cluster))
   if(is.element(pock1_cluster,pock2_cluster)) {
     y_predict_diffLdiffP = c(y_predict_diffLdiffP,1)
@@ -399,9 +481,9 @@ Sp = table_clusters[1,1] / (table_clusters[1,1] + table_clusters[2,1])
 Se
 Sp
 #library(mltools)
-sLsP = 11
-sLdP = 9
-dLdP = 2
+sLsP = 24
+sLdP = 20
+dLdP = 13
 TP = sLsP+sLdP
 TN = 50-dLdP
 FP = dLdP
@@ -435,6 +517,12 @@ y_true = c(rep(1,length(dist_lig_sameP_sameL)+
 y_predict = c(dist_lig_sameP_sameL,
               dist_lig_diffP_sameL,
               dist_lig_diffP_diffL)
+#
+y_true = c(rep(1,length(dist_lig_sameP_sameL)),
+           rep(0,length(dist_lig_diffP_diffL)))
+y_predict = c(dist_lig_sameP_sameL,
+              dist_lig_diffP_diffL)
+#
 y_predict[which(is.na(y_predict) == TRUE)] = 0
 #library(ROCR)
 dt.pred = prediction(y_predict, y_true)
@@ -452,3 +540,72 @@ Se = glm.table[2,2] / (glm.table[2,2] + glm.table[1,2])
 Sp = glm.table[1,1] / (glm.table[1,1] + glm.table[2,1])
 Se
 Sp
+
+### TREE BUILDING ###
+library(data.tree)
+##
+seeds = 30
+#
+path = "../data/kmeans_results_reglog/"
+#path = "../results/kmeans_results_reglog/"
+#
+colnames_dt = colnames(dt)
+#
+kmean_results = read.table(file = paste0(paste0(paste0(path,"kmeans_reglog_seeds"),seeds),"_clusters.txt"), sep = ",", header = F, row.names = 1)
+kmean_centroids = read.table(file = paste0(paste0("../data/kmeans_results_reglog/kmeans_reglog_seeds",seeds),"_means.txt"), sep = ",", header = F)
+colnames(kmean_centroids) = colnames_dt
+kmean_size = as.vector(table(kmean_results[,1]))
+kmean_SSE =  read.table(file = paste0(paste0(paste0(path,"kmeans_reglog_SSE_seeds"),seeds),".txt"), sep = ",",header = T)
+#
+pockets_cluster = list()
+cluster_dend = list()
+for (i in 1:seeds){
+  print(i)
+  pockets_cluster[[i]] = rownames(kmean_results)[which(kmean_results == i-1)]
+  #mat_dist = matrix(0,nrow = length(pockets_cluster[[i]]),ncol=length(pockets_cluster[[i]]))
+  #colnames(mat_dist) = pockets_cluster[[i]]
+  #rownames(mat_dist) = pockets_cluster[[i]]
+  #print(nrow(mat_dist))
+  #v = v + nrow(mat_dist)*nrow(mat_dist)
+  #for (j in 1:nrow(mat_dist)) {
+  #  print(j)
+  #  print("---")
+  #  for (k in 1:j) {
+  #    #print(k)
+  #    v= v+1
+  #    print(v)
+  #    mat_dist[j,k] = 1-predict.glm(dt_predict.glm.step, newdata = as.data.frame(sqrt((dt[pockets_cluster[[i]][j],]-dt[pockets_cluster[[i]][k],])**2)), type = "response")
+  #  }
+  #}
+  #
+  mat_dist = read.csv(paste0(paste0("../results/kmeans_results_reglog/mat_dist_30/mat_dist_",i-1),".csv"),row.names = 1)
+  cluster_dend[[i]] = as.dendrogram(hclust(as.dist(mat_dist),method = "ward.D2"))
+}
+# dt_pock = matrix(rep(dt[pockets_cluster[[i]][j],],each=n),nrow=n)
+# dt_pock = dt[pockets_cluster[[i]][j],]
+# 
+# mat_dist = read.csv("../results/kmeans_results_reglog/mat_dist_30/mat_dist_0.csv",row.names = 1)
+# nrow(mat_dist)
+# ncol(mat_dist)
+# rownames(mat_dist)
+# colnames(mat_dist)
+# test = hclust(as.dist(mat_dist),method = "ward.D2")
+# plot(test)
+
+cluster_dt = data.frame(centers = kmean_centroids,
+                        withinss = kmean_SSE$SSE,
+                        size = kmean_size,
+                        #betweenss = rep(dt.kmean$betweenss, nbr_k_optimal),
+                        #totss = rep(dt.kmean$totss, nbr_k_optimal),
+                        pockets_names = I(pockets_cluster),
+                        cluster_dend = I(cluster_dend)
+                        
+)
+path_tree = c("alltree")
+cluster_dt$pathString = paste(path_tree, 1:seeds,sep = "/")
+cluster_infos = cluster_dt
+#library(data.tree)
+alltree <- as.Node(cluster_infos)
+
+
+

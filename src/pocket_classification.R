@@ -44,7 +44,7 @@ processFile = function(filepath, dt, fileConn) {
 }
 processFile("../data/FPCount_save_all.txt", dt, fileConn)
 
-dt_pharmacophores = read.table("../data/FPCount_save_all_inter_dt12_bis.txt", sep = ";", row.names = 1, nrows = 20)
+dt_pharmacophores = read.table("../data/FPCount_save_all_inter_dt72.txt", sep = ";", row.names = 1)
 
 
 rownames(dt_pharmacophores) = toupper(dt_pharmacophores[,1])
@@ -458,7 +458,7 @@ pockets_classification_tree = function(dt,
   ##
   #TODO:select K optimal
   ##
-  nbr_k_optimal = 800
+  nbr_k_optimal = 30
   #seceond kmean
   print("here1")
   #dt.kmean = kmeans(dt, centers = nbr_k_optimal, nstart = nstart, iter.max = 200)
