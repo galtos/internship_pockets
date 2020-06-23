@@ -117,6 +117,7 @@ scaled_scale_dt = scaled_scale_dt_t[,1]
 names(scaled_scale_dt) = rownames(scaled_scale_dt_t)
 #
 dt = scale(dt, scaled_center_dt, scaled_scale_dt)
+#dt_overlap = scale(dt_overlap, scaled_center_dt, scaled_scale_dt)
 ### INTERSECT PHARMACOPHORES ###
 #dt_pharmacophores = read.table("../data/FPCount_save_all_inter_dt72.txt",sep = ";", row.names = 1)
 load("../data/intersect_dt72_pharmacophores.Rdata")
@@ -1121,7 +1122,13 @@ summary(dt_predict.glm.step)
 pock_test = sqrt((dt["101M_HEM_A_1",features] - dt["102M_HEM_A_1",features])**2)
 pock_test = as.data.frame(rbind(pock_test,pock_test))
 
-predict.glm(dt_predict.glm.step, newdata=pock_test[,features], type = "response" )
+##
+dt_predict = rbind(dt_pock_samePsameL,
+                         dt_pock_diffPdiffL)
+y_true = c(rep(1,nrow(dt_pock_samePsameL)),
+           rep(0,nrow(dt_pock_diffPdiffL))) 
+y_predict = predict.glm(dt_predict.glm.step, newdata=dt_predict[,features], type = "response" )
+##
 exp(sim)/(1+exp(sim))
 
 similarity_regol = function(dt_pock1,dt_pock2) {
@@ -1212,6 +1219,7 @@ y_predict = predict.glm(dt_predict.glm.step, newdata=dt_predict_test[,features],
 y_predict = predict.glm(dt_predict.glm.step, newdata=dt_predict_test_samePsameL[,features],type = "response" )
 y_predict = predict.glm(dt_predict.glm.step, newdata=dt_predict_test_diffPsameL[,features],type = "response" )
 #
+perf_auc(y_predict, y_true)
 perf_auc(y_predict, y_true_app)
 perf_auc(y_predict, y_true_test)
 perf_auc(y_predict, y_true_test_samePsameL)
@@ -1221,9 +1229,9 @@ y_predict[which(y_predict > 0.5)] = 1
 y_predict[which(y_predict < 0.5)] = 0
 #MCC
 #library(mltools)
-mcc(preds = y_predict, actuals = y_true_test_diffPsameL)
+mcc(preds = y_predict, actuals = y_true_test)
 #
-glm.table <- table(y_predict, y_true_test)
+glm.table <- table(y_predict, y_true_test_diffPsameL)
 Se = glm.table[2,2] / (glm.table[2,2] + glm.table[1,2])
 Sp = glm.table[1,1] / (glm.table[1,1] + glm.table[2,1])
 Se
@@ -1545,6 +1553,10 @@ dist_lig_sameP_sameL = dist_lig_sameP_sameL + y_predict[1:nrow(dt_pock_samePsame
 dist_lig_diffP_sameL = dist_lig_diffP_sameL + y_predict[nrow(dt_pock_samePsameL):(nrow(dt_pock_samePsameL)+nrow(dt_pock_diffPsameL))]
 dist_lig_diffP_diffL = dist_lig_diffP_diffL + y_predict[(nrow(dt_pock_samePsameL)+nrow(dt_pock_diffPsameL)):nrow(dt_predict)]
 ##plot
+dist_lig_sameP_sameL = predict.glm(dt_predict.glm.step, newdata=as.data.frame(dt_pock_samePsameL[,features]),type = "response" )
+dist_lig_diffP_sameL = predict.glm(dt_predict.glm.step, newdata=as.data.frame(dt_pock_diffPsameL[,features]),type = "response" )
+dist_lig_diffP_diffL = predict.glm(dt_predict.glm.step, newdata=as.data.frame(dt_pock_diffPdiffL[,features]),type = "response" )
+
 sm.density.compare(c(dist_lig_diffP_diffL,
                      dist_lig_sameP_sameL,
                      dist_lig_diffP_sameL),
@@ -1552,7 +1564,7 @@ sm.density.compare(c(dist_lig_diffP_diffL,
                      rep(2,length(dist_lig_sameP_sameL)),
                      rep(3,length(dist_lig_diffP_sameL))
                    ),
-                   model = "none"
+                   model = "none", xlim = c(0,1),
                    , xlab = "Mean distance bewteen pockets")
 plot(dist_lig_sameP_sameL,y_predict[1:nrow(dt_pock_samePsameL)],
      ylim = c(0,1))

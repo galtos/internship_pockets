@@ -1294,7 +1294,7 @@ names_prot = sapply(strsplit(rownames(dt), "_"), "[", 1)
 names_ligand = sapply(strsplit(rownames(dt), "_"), "[", 2)
 length(which(names_ligand == "CLQ"))
 
-length(which(table(names_ligand) > 1))
+length(which(table(names_ligand) > 10))
 
 length(unique(names_ligand))
 #names_ligand = unique(names_ligand)
@@ -1307,7 +1307,7 @@ plot(table_names_ligand,xlab = NULL)
 
 hist(sort(table_names_ligand))
 
-table_names_ligand[which(table_names_ligand > 500)]
+table_names_ligand[which(table_names_ligand > 1000)]
 length(which(table_names_ligand == 1000))
 
 #camember plot:
@@ -1715,7 +1715,7 @@ names_prot = sapply(strsplit(rownames(dt), "_"), "[", 1)
 #
 pdb_names_hydrolases = scan("../data/enzymes_pdb_names/hydrolases.txt", character(), quote = "")
 pdb_names_hydrolases = sub(",","",pdb_names_hydrolases)
-length(intersect(pdb_names_hydrolases, names_prot))
+length(intersect(names_prot,pdb_names_hydrolases))
 n_poches_hydrolases = sum(table(names_prot)[intersect(pdb_names_hydrolases, names_prot)])
 #
 pdb_names_transferases = scan("../data/enzymes_pdb_names/tansferases.txt", character(), quote = "")
