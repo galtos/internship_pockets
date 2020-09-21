@@ -8,6 +8,7 @@ library(FactoMineR)
 library(sm)
 library(colorspace)
 ####load data####
+#dt_72descriptors = read.table("../../data/data_PDB_72desc.txt", header = T, sep = "", row.names = 1, fill = TRUE)
 dt_72descriptors = read.table("../data/data_PDB_72desc.txt", header = T, sep = "", row.names = 1, fill = TRUE)
 dt_12descriptors = read.table("../data/data_desc.csv", header = T, sep = ",", row.names = 1, nrow = 2)
 #dt overlap
@@ -87,6 +88,7 @@ names_prot = sapply(strsplit(rownames(dt), "_"), "[", 1)
 names_ligand = sapply(strsplit(rownames(dt), "_"), "[", 2)
 ### 3: supprimer poches lié aux ligand pas interressants
 excluded_ligands = scan("../data/PLIC_lig/excluded_ligands.txt", sep ="\n", what = character())
+#excluded_ligands = scan("../../data/PLIC_lig/excluded_ligands.txt", sep ="\n", what = character())
 dt = dt[!is.element(names_ligand, excluded_ligands),]
 nrow(dt)
 summary(dt)

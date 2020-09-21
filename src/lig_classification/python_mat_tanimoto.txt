@@ -1,0 +1,167 @@
+import os
+import numpy as np
+import pandas as pd
+from rdkit import Chem
+from rdkit.Chem import MACCSkeys
+from rdkit import DataStructs
+from rdkit.DataManip.Metric import GetTanimotoSimMat
+from rdkit.ML.Cluster import Butina
+from rdkit import DataManip
+
+from rdkit import rdBase
+from rdkit.Chem import RDConfig
+###GET SDF PATH
+from os import listdir
+from os.path import isfile, join
+
+mypath = "/home/naceri/stage_Guillaume/data/file_lig_sdf"
+
+onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
+os.listdir(mypath)
+#
+path_sdf = []
+for root, dirs, files in os.walk(os.path.abspath(mypath)):
+    for file in files:
+        path_sdf.append(os.path.join(root, file))
+
+
+#
+len(path_sdf)
+#
+N=0
+count=0
+#suppl = Chem.SDMolSupplier('/home/naceri/stage_Guillaume/data/file_lig_sdf/All_ligand.sdf')
+suppl= Chem.SDMolSupplier('/home/naceri/stage_Guillaume/data/file_lig_sdf_regad/All_ligand.sdf')
+mols = []
+names_lig = []
+for mol in suppl:
+    count=count+1
+    if mol is None:
+        N=N+1
+    else:
+        #names_lig.append(mol.GetProp("_Name"))
+        mols.append(mol)
+#
+sdf_filename = '/home/naceri/stage_Guillaume/data/file_lig_sdf_regad/All_ligand.sdf'
+
+#
+from rdkit.Chem.PandasTools import LoadSDF
+df = LoadSDF(sdf_filename, smilesName='SMILES')
+#
+#
+suppl= os.path.join(RDConfig.RDDocsDir, '/home/naceri/stage_Guillaume/data/file_lig_sdf_regad/All_ligand.sdf')
+mols = [m for m in Chem.SDMolSupplier(sdfdir)]
+
+#
+ms = [Chem.MolFromSmiles('CCOC'), Chem.MolFromSmiles('CCO'),Chem.MolFromSmiles('COC')]
+
+mols = []
+for i_path in range(len(path_sdf)):
+    mols.append(Chem.SDMolSupplier(path_sdf[i_path]))
+    #fps.append(MACCSkeys.GenMACCSKeys(mols))
+
+#
+mols = [m for m in mol]
+
+fps = [MACCSkeys.GenMACCSKeys(x) for x in mols]
+names_lig = [mol.GetProp("_Name") for mol in mols]
+names_lig = []
+fps = []
+for mol in mols:
+    if mol.GetProp("_Name") == "3Q8Y_ADP_A_1":
+        fps.append(MACCSkeys.GenMACCSKeys(mol))
+        names_lig.append(mol.GetProp("_Name"))
+    if mol.GetProp("_Name") == "3BLQ_ATP_A_1":
+        fps.append(MACCSkeys.GenMACCSKeys(mol))
+        names_lig.append(mol.GetProp("_Name"))
+
+
+#distmat = DataManip.Metric.rdMetricMatrixCalc.GetTanimotoSimMat(fps)
+distmat = DataManip.Metric.rdMetricMatrixCalc.GetTanimotoDistMat(fps)
+#GetTanimotoSimMat(fps)
+
+def tri2mat(tri_arr):
+    n = len(tri_arr)
+    m = int((np.sqrt(1 + 4 * 2 * n) + 1) / 2)
+    arr = np.ones([m, m])
+    for i in range(m):
+        for j in range(i):
+            arr[i][j] = tri_arr[i + j - 1]
+            arr[j][i] = tri_arr[i + j - 1]
+    return arr
+
+
+distarr = tri2mat(distmat)
+dist_dt = pd.DataFrame(data=distarr, index=names_lig, columns=names_lig)
+#dist_dt.to_csv("../results/lig_classification/mat_dist_tanimoto.csv")
+dist_dt.to_csv("../../results/lig_classification/mat_dist_tanimoto_regad.csv")
+### SAVE DIST TANIMOTO
+names_lig = [mol.GetProp("_Name") for mol in mols]
+dist_dt = pd.DataFrame(data=np.ones([len(names_lig), len(names_lig)]), index=names_lig, columns=names_lig)
+i=0
+for mol1 in mols:
+    i=i+1
+    print(i)
+    for mol2 in mols:
+        dist_dt[mol1.GetProp("_Name")][mol2.GetProp("_Name")] = DataStructs.FingerprintSimilarity(MACCSkeys.GenMACCSKeys(mol1),MACCSkeys.GenMACCSKeys(mol2))
+#
+fps = [MACCSkeys.GenMACCSKeys(x) for x in mols]
+names_lig = [mol.GetProp("_Name") for mol in mols]
+arr=np.ones([len(names_lig), len(names_lig)])
+flag=0
+for i in range(len(fps)):
+    flag=flag+1
+    print(flag)
+    for j in range(len(fps)):
+        arr[i][j] = DataStructs.FingerprintSimilarity(fps[i],fps[j])
+
+dist_dt = pd.DataFrame(data=arr, index=names_lig, columns=names_lig)
+#
+dist_dt.to_csv("../../results/lig_classification/mat_dist_tanimoto_regad.csv")
+### BUTINA CLUSTER
+
+dist_dt = pd.read_csv("../../results/lig_classification/mat_dist_tanimoto_regad.csv",index_col=0)
+lig_names = dist_dt.columns.tolist()
+dist_arr = dist_dt.values
+nfps = len(dist_dt)
+cutoff = 0.1
+
+dists = [] 
+for i in range(nfps):
+    for j in range(i):
+        dists.append(dist_arr[j][i])
+
+cs = Butina.ClusterData(dists ,nfps,cutoff,isDistData=True, reordering=True)
+#####
+def ClusterFps(fps,cutoff=0.2):
+    from rdkit import DataStructs
+    from rdkit.ML.Cluster import Butina
+    # first generate the distance matrix:
+    dists = []
+    nfps = len(fps)
+    for i in range(1,nfps):
+        sims = DataStructs.BulkTanimotoSimilarity(fps[i],fps[:i])
+        dists.extend([1-x for x in sims])
+    # now cluster the data:
+    print("clustering...\n")
+    cs = Butina.ClusterData(dists,nfps,cutoff,isDistData=True)
+    return cs
+
+fps = [MACCSkeys.GenMACCSKeys(x) for x in mols]
+names_lig = [mol.GetProp("_Name") for mol in mols]
+clusters2=ClusterFps(fps,cutoff=0.2)
+
+class_lig = [-1] * len(names_lig)
+for i in range(len(clusters)):
+    for j in clusters[i]:
+        class_lig[j] = i
+
+f = open("lig_class_0.8.txt","w")
+f.write("lig,class\n")
+for i in range(len(names_lig)):
+    f.write(str(names_lig[i]) + "," + str(class_lig[i]) + "\n")
+
+f.close()
+
+
+

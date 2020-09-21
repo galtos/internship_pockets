@@ -28,9 +28,9 @@ write(union(union(pocket_samePsameL_50,pocket_diffPsameL_50),pocket_diffPdiffL_5
 write(rownames(dt), file = "../data/liste_pdb_overlpap_all.txt")
 #### ANALYSIS ####
 path = "../results/kmeans_results_reglog_PproxMfpo/"
-path = "../data/kmeans_results_reglog/"
+path = "../results/kmeans_results_reglog_article/"
 #
-Nseeds = c(5,10,20,30,40,50,60,70,80,90,100,200,300,400,500,800)
+Nseeds = c(5,10,20,30,40,50,60,70,80,90,100,200,300,400,500)
 kmean_It = scan(file =  paste0(path,"/kmeans_reglog_TSS.txt"))#35354.82457577707#
 #
 seeds = 5
@@ -58,7 +58,7 @@ for (seeds in Nseeds) {
   
 }
 R2
-plot(Nseeds,R2)
+plot(Nseeds,R2,type = "l")
 plot(kmean_size, sqrt(kmean_SSE[,"SSE"]/kmean_size),ylim = c(0,1))
 
 mean(table(kmean_results))
@@ -646,10 +646,11 @@ cluster_infos = cluster_dt
 alltree <- as.Node(cluster_infos)
 
 ### DISTRIBUTION Y_PRED DANS KMEANS INTERET ###
-for (seeds in c(200)) {
-  for (seuil in c(0.7)) {#0.5,0.6,0.7,0.8,
-    kmean_results = read.table(file = paste0(paste0("../results/kmeans_results_reglog_PproxMfpo/kmeans_reglog_seeds",seeds),"_clusters.txt"), sep = ",", header = F, row.names = 1)
-    kmean_centroids = read.table(file = paste0(paste0("../results/kmeans_results_reglog_PproxMfpo/kmeans_reglog_seeds",seeds),"_means.txt"), sep = ",", header = F)
+sink('../results/kmeans_results_reglog_article/output_50.txt')
+for (seeds in c(5,10,20,30,40,50,60,70,80,90,100,200,300,400,500)) {
+  for (seuil in c(0.5,0.6,0.7,0.8,0.9,1)) {#0.5,0.6,0.7,0.8,
+    kmean_results = read.table(file = paste0(paste0("../results/kmeans_results_reglog_article/kmeans_reglog_seeds",seeds),"_clusters.txt"), sep = ",", header = F, row.names = 1)
+    kmean_centroids = read.table(file = paste0(paste0("../results/kmeans_results_reglog_article/kmeans_reglog_seeds",seeds),"_means.txt"), sep = ",", header = F)
     colnames(kmean_centroids) = colnames(dt)
     #
     y_predict_30 = NULL
@@ -832,6 +833,8 @@ for (seeds in c(200)) {
     #
   }
 }
+sink()
+
 #
 y_predict_30_mean
 length(y_predict_30_mean)
@@ -1111,16 +1114,109 @@ T2-T1
 
 
 T1<-Sys.time()
+###NEW POCKET
+#PATH
+path_covid_6lu7="../data/pockets_MD_NS1/Res_pocketConf0101-p0_atm/pocketConf101-0_atm.des"
 
-dt_fpocket_expanded <- dt_fpocket[rep("1QJC_PNS_B_1", nrow(kmean_centroids)),features]
+dt_new_pocket_des = read.table(path_covid_6lu7, row.names = 1)
+dt_fpocket = data.frame(A = dt_new_pocket_des["pocket_A",1],
+                        C = dt_new_pocket_des["pocket_C",1],
+                        C_ATOM = dt_new_pocket_des["pocket_C_ATOM",1],
+                        C_RESIDUES = dt_new_pocket_des["pocket_C_RESIDUES",1],
+                        charge = dt_new_pocket_des["pocket_charge",1],
+                        CONVEX.SHAPE_COEFFICIENT = dt_new_pocket_des["pocket_CONVEX-SHAPE_COEFFICIENT",1],
+                        D = dt_new_pocket_des["pocket_D",1],
+                        DIAMETER_HULL = dt_new_pocket_des["pocket_DIAMETER_HULL",1],
+                        E = dt_new_pocket_des["pocket_E",1],
+                        F = dt_new_pocket_des["pocket_F",1],
+                        FACE = dt_new_pocket_des["pocket_FACE",1],
+                        G = dt_new_pocket_des["pocket_G",1],
+                        H = dt_new_pocket_des["pocket_H",1],
+                        hydrophobic_kyte = dt_new_pocket_des["pocket_hydrophobic_kyte",1],
+                        hydrophobicity = dt_new_pocket_des["pocket_hydrophobicity",1],
+                        I = dt_new_pocket_des["pocket_I",1],
+                        INERTIA_1 = dt_new_pocket_des["pocket_INERTIA_1",1],
+                        INERTIA_2 = dt_new_pocket_des["pocket_INERTIA_2",1],
+                        INERTIA_3 = dt_new_pocket_des["pocket_INERTIA_3",1],
+                        K = dt_new_pocket_des["pocket_K",1],
+                        L = dt_new_pocket_des["pocket_L",1],
+                        M = dt_new_pocket_des["pocket_M",1],
+                        N = dt_new_pocket_des["pocket_N",1],
+                        P = dt_new_pocket_des["pocket_P",1],
+                        p_aliphatic_residues = dt_new_pocket_des["pocket_p_aliphatic_residues",1],
+                        p_aromatic_residues = dt_new_pocket_des["pocket_p_aromatic_residues",1],
+                        p_C_atom = dt_new_pocket_des["pocket_p_C_atom",1],
+                        p_Car_atom = dt_new_pocket_des["pocket_p_Car_atom",1],
+                        p_carbone_atom = dt_new_pocket_des["pocket_p_carbone_atom",1],
+                        p_Carg_atom = dt_new_pocket_des["pocket_p_Carg_atom",1],
+                        p_Ccoo_atom = dt_new_pocket_des["pocket_p_Ccoo_atom",1],
+                        p_Cgln_atom = dt_new_pocket_des["pocket_p_Cgln_atom",1],
+                        p_charged_residues = dt_new_pocket_des["pocket_p_charged_residues",1],
+                        p_hyd_atom = dt_new_pocket_des["pocket_p_hyd_atom",1],
+                        p_hydrophobic_atom = dt_new_pocket_des["pocket_p_hydrophobic_atom",1],
+                        p_hydrophobic_residues = dt_new_pocket_des["pocket_p_hydrophobic_residues",1],
+                        p_main_chain_atom = dt_new_pocket_des["pocket_p_main_chain_atom",1],
+                        p_N_atom = dt_new_pocket_des["pocket_p_N_atom",1],
+                        p_ND1_atom = dt_new_pocket_des["pocket_p_ND1_atom",1],
+                        p_NE2_atom = dt_new_pocket_des["pocket_p_NE2_atom",1],
+                        p_negative_residues = dt_new_pocket_des["pocket_p_negative_residues",1],
+                        p_nitrogen_atom = dt_new_pocket_des["pocket_p_nitrogen_atom",1],
+                        p_Nlys_atom = dt_new_pocket_des["pocket_p_Nlys_atom",1],
+                        p_Ntrp_atom = dt_new_pocket_des["pocket_p_Ntrp_atom",1],
+                        p_O_atom = dt_new_pocket_des["pocket_p_O_atom",1],
+                        p_Ocoo_atom = dt_new_pocket_des["pocket_p_Ocoo_atom",1],
+                        p_Ooh_atom = dt_new_pocket_des["pocket_p_Ooh_atom",1],
+                        p_Otyr_atom = dt_new_pocket_des["pocket_p_Otyr_atom",1],
+                        p_oxygen_atom = dt_new_pocket_des["pocket_p_oxygen_atom",1],
+                        p_polar_residues = dt_new_pocket_des["pocket_p_polar_residues",1],
+                        p_positive_residues = dt_new_pocket_des["pocket_p_positive_residues",1],
+                        p_S_atom = dt_new_pocket_des["pocket_p_S_atom",1],
+                        p_side_chain_atom = dt_new_pocket_des["pocket_p_side_chain_atom",1],
+                        p_small_residues = dt_new_pocket_des["pocket_p_small_residues",1],
+                        p_sulfur_atom = dt_new_pocket_des["pocket_p_sulfur_atom",1],
+                        p_tiny_residues = dt_new_pocket_des["pocket_p_tiny_residues",1],
+                        PCI = dt_new_pocket_des["pocket_PCI",1],
+                        polarity = dt_new_pocket_des["pocket_polarity",1],
+                        PSI = dt_new_pocket_des["pocket_PSI",1],
+                        Q = dt_new_pocket_des["pocket_Q",1],
+                        R = dt_new_pocket_des["pocket_R",1],
+                        RADIUS_CYLINDER = dt_new_pocket_des["pocket_RADIUS_CYLINDER",1],
+                        RADIUS_HULL = dt_new_pocket_des["pocket_RADIUS_HULL",1],
+                        S = dt_new_pocket_des["pocket_S",1],
+                        SMALLEST_SIZE = dt_new_pocket_des["pocket_SMALLEST_SIZE",1],
+                        SURFACE_HULL = dt_new_pocket_des["pocket_SURFACE_HULL",1],
+                        T = dt_new_pocket_des["pocket_T",1],
+                        V = dt_new_pocket_des["pocket_V",1],
+                        W = dt_new_pocket_des["pocket_W",1],
+                        X._ATOM_CONVEXE = dt_new_pocket_des["pocket_%_ATOM_CONVEXE",1],
+                        Y = dt_new_pocket_des["pocket_Y",1],
+                        VOLUME_HULL = dt_new_pocket_des["pocket_VOLUME_HULL",1]
+)
+
+#
+scaled_center_dt_t = read.table(file = "../results/scale/scaled_center_dt72clean.Rdata", col.names = F, row.names = 1)
+scaled_scale_dt_t = read.table(file = "../results/scale/scaled_scale_dt72clean.Rdata", col.names = F, row.names = 1)
+scaled_center_dt = scaled_center_dt_t[,1]
+names(scaled_center_dt) = rownames(scaled_center_dt_t)
+scaled_scale_dt = scaled_scale_dt_t[,1]
+names(scaled_scale_dt) = rownames(scaled_scale_dt_t)
+#
+dt_fpocket = as.data.frame(scale(dt_fpocket[,colnames(dt_fpocket)], scaled_center_dt[colnames(dt_fpocket)],
+                                                                    scaled_scale_dt[colnames(dt_fpocket)]))
+
+rownames(dt_fpocket)
+colnames(dt_fpocket)
+setdiff(features,colnames(dt_fpocket))
+##
+dt_fpocket_expanded <- dt_fpocket[rep("1", nrow(kmean_centroids)),features]
 rownames(dt_fpocket_expanded) = rownames(kmean_centroids)
 pock2_clusters = predict.glm(dt_predict.glm.step, newdata = sqrt((kmean_centroids[,features]-dt_fpocket_expanded[,features])**2), type = "response")
 name_dt = rownames(kmean_results)[which(is.element(kmean_results[,1],which(pock2_clusters == max(pock2_clusters) | pock2_clusters>0.7)-1))]
 #sur toutes les poches
-dt_fpocket_expanded <- dt_fpocket[rep("1QJC_PNS_B_1", nrow(dt[name_dt,])),features]
+dt_fpocket_expanded <- dt_fpocket[rep("1", nrow(dt[name_dt,])),features]
 rownames(dt_fpocket_expanded) = rownames(dt[name_dt,])
 predicted_pocket = predict.glm(dt_predict.glm.step, newdata = sqrt((dt[name_dt,features]-dt_fpocket_expanded[,features])**2), type = "response")
-sort(predicted_pocket[name_dt], decreasing = TRUE)[1:20]
+sort(predicted_pocket[name_dt], decreasing = TRUE)[1:30]
 mean(sort(predicted_pocket[name_dt], decreasing = TRUE)[1:30])
 sd(sort(predicted_pocket[name_dt], decreasing = TRUE)[1:30])
 
